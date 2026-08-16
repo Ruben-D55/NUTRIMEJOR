@@ -1,0 +1,13 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment: {ACCEPT_EULA: Y, MSSQL_SA_PASSWORD: "${DB_PASSWORD}"}
+    ports: ["1433:1433"]
+    volumes: ["sql_data:/var/opt/mssql"]
+  web:
+    build: .
+    depends_on: [sqlserver]
+    ports: ["3000:3000"]
+    env_file: .env
+    environment: {DB_SERVER: sqlserver, DB_ENCRYPT: "false", DB_TRUST_CERTIFICATE: "true"}
+volumes: {sql_data: {}}
