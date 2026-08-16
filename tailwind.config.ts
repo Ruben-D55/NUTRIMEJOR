@@ -1,0 +1,1 @@
+import type{Config}from"tailwindcss";export default{darkMode:["class"],content:["./app/**/*.{ts,tsx}","./components/**/*.{ts,tsx}"],theme:{extend:{fontFamily:{sans:["var(--font-dm)","sans-serif"],display:["var(--font-manrope)","sans-serif"]},colors:{primary:"hsl(var(--primary))",surface:"hsl(var(--surface))"}}},plugins:[]}satisfies Config;
