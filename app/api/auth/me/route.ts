@@ -1,0 +1,1 @@
+import{NextResponse}from"next/server";import{session}from"@/lib/server/auth";export async function GET(){const s=await session();return s?NextResponse.json({user:s}):NextResponse.json({error:"No autorizado"},{status:401})}
