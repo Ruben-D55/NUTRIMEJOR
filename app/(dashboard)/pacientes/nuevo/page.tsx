@@ -1,1 +1,1 @@
-import P from"@/components/placeholder";export default function Page(){return <P title="Nuevo paciente" phase={2}/>}
+import{PatientForm}from"@/components/patients/patient-form";export default function Page(){return <section><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Pacientes</p><h1 className="mt-2 font-display text-3xl font-bold">Nuevo paciente</h1><p className="mt-2 text-slate-500">Registra la información principal para crear su ficha.</p><PatientForm/></section>}
