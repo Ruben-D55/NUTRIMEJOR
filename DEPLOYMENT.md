@@ -9,6 +9,10 @@
 
 `.env.local` contiene secretos, está ignorado por Git y nunca debe subirse al repositorio.
 
+### Autenticación de Windows
+
+En la computadora `LENOVOW11RYZEN5`, selecciona `windows` al ejecutar el script. La aplicación usará la sesión de Windows y no pedirá usuario ni contraseña de SQL Server. Esta modalidad requiere Windows y el controlador ODBC de SQL Server. Para Docker o Azure utiliza autenticación `sql`.
+
 ## Producción recomendada
 
 - Web: contenedor Docker en Azure App Service.
