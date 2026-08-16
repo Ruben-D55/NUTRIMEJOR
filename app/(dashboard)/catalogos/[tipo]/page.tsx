@@ -1,1 +1,1 @@
-import P from"@/components/placeholder";export default async function Page({params}:{params:Promise<{tipo:string}>}){const{tipo}=await params;return <P title={`Mis ${tipo}`} phase={3}/>}
+import CatalogPage from"@/components/catalog/catalog-page";export default async function Page({params}:{params:Promise<{tipo:string}>}){const{tipo}=await params;if(!['recetas','alimentos','dietas'].includes(tipo))return null;return <CatalogPage type={tipo as 'recetas'|'alimentos'|'dietas'}/>}
