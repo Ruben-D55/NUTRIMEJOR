@@ -1,23 +1,34 @@
 # NUTRIMEJOR
 
-Primera versión de la interfaz web para gestión nutricional.
+Página web profesional para nutricionistas, desarrollada con Node.js, Express y SQL Server.
 
-## Funcionalidades incluidas
+## Funciones
 
-- Inicio de sesión de demostración.
-- Panel principal adaptable a computadora y celular.
-- Navegación a Inicio, Nuevo paciente y Mis pacientes.
-- Catálogos: Mis recetas, Mis alimentos y Mis dietas.
-- Cálculos dietéticos y Configuración.
+- Registro público de nutricionistas e inicio de sesión seguro.
+- Roles `ADMIN` y `NUTRICIONISTA`.
+- Pacientes separados por nutricionista.
+- Catálogos de alimentos, recetas y dietas.
+- Cálculo de IMC y gasto energético diario.
+- Administración de usuarios y perfiles profesionales.
+- Diseño adaptable para computadoras, tabletas y celulares.
 
-## Ejecutar localmente
+## Configuración local
 
-Abre `index.html` en el navegador o inicia un servidor local:
+1. Ejecuta `database/01_crear_base.sql` en SQL Server Management Studio.
+2. Copia `.env.example` como `.env` y completa los datos de SQL Server.
+3. Ejecuta `npm install`.
+4. Ejecuta `npm start`.
+5. Abre `http://localhost:3000`.
 
-```bash
-python -m http.server 8080
+## Primer administrador
+
+Todos los registros públicos se crean como nutricionistas. Después de registrar la primera cuenta, conviértela en administrador desde SQL Server:
+
+```sql
+USE Nutrimejor;
+UPDATE Usuarios SET Rol = 'ADMIN' WHERE Email = 'tu-correo@ejemplo.com';
 ```
 
-Luego abre `http://localhost:8080`.
+## Publicación
 
-> El acceso actual es demostrativo. La autenticación segura y el almacenamiento de datos requieren un backend y una base de datos.
+Para uso público, configura las variables del archivo `.env.example` como variables privadas del servidor y utiliza una instancia pública de SQL Server o Azure SQL. Nunca publiques el archivo `.env`.
