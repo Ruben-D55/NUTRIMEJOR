@@ -1,23 +1,10 @@
 # NUTRIMEJOR
 
-Primera versión de la interfaz web para gestión nutricional.
-
-## Funcionalidades incluidas
-
-- Inicio de sesión de demostración.
-- Panel principal adaptable a computadora y celular.
-- Navegación a Inicio, Nuevo paciente y Mis pacientes.
-- Catálogos: Mis recetas, Mis alimentos y Mis dietas.
-- Cálculos dietéticos y Configuración.
-
-## Ejecutar localmente
-
-Abre `index.html` en el navegador o inicia un servidor local:
+Fase 1 construida con Next.js 15, TypeScript, Tailwind CSS y estructura Shadcn/ui.
 
 ```bash
-python -m http.server 8080
+npm install
+npm run dev
 ```
 
-Luego abre `http://localhost:8080`.
-
-> El acceso actual es demostrativo. La autenticación segura y el almacenamiento de datos requieren un backend y una base de datos.
+Abre `http://localhost:3000`. Incluye login, dashboard, layout responsive y modo oscuro. Los módulos restantes están preparados por rutas para las fases siguientes.
