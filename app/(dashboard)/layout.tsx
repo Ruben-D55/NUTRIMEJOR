@@ -1,1 +1,1 @@
-import Shell from"@/components/app-shell";export default function Layout({children}:{children:React.ReactNode}){return <Shell>{children}</Shell>}
+import Shell from"@/components/app-shell";import{PatientProvider}from"@/components/patients/patient-provider";export default function Layout({children}:{children:React.ReactNode}){return <PatientProvider><Shell>{children}</Shell></PatientProvider>}
