@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#176b57" />
+    <meta name="description" content="NUTRIMEJOR — Gestión nutricional y seguimiento de pacientes." />
+    <title>NUTRIMEJOR</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <section class="login-screen" id="loginScreen">
+      <div class="login-brand">
+        <div class="brand-mark brand-mark--large"><span>N</span></div>
+        <div class="brand-copy">
+          <p class="eyebrow">Nutrición con propósito</p>
+          <h1>Cuida mejor.<br />Avanza mejor.</h1>
+          <p>Organiza pacientes, planes y cálculos nutricionales en un solo lugar.</p>
+        </div>
+        <div class="brand-orbit orbit-one"></div>
+        <div class="brand-orbit orbit-two"></div>
+      </div>
+      <div class="login-panel">
+        <form class="login-card" id="loginForm">
+          <div class="mobile-logo"><div class="brand-mark"><span>N</span></div><strong>NUTRIMEJOR</strong></div>
+          <p class="eyebrow">Bienvenido de nuevo</p>
+          <h2>Iniciar sesión</h2>
+          <p class="muted">Ingresa tus datos para acceder a tu espacio de trabajo.</p>
+          <label for="email">Correo electrónico</label>
+          <div class="input-wrap"><span data-icon="mail"></span><input id="email" type="email" placeholder="nombre@correo.com" value="nutri@demo.com" required /></div>
+          <div class="label-row"><label for="password">Contraseña</label><button class="text-button" type="button">¿La olvidaste?</button></div>
+          <div class="input-wrap"><span data-icon="lock"></span><input id="password" type="password" placeholder="Tu contraseña" value="12345678" minlength="6" required /><button type="button" class="icon-button" id="togglePassword" aria-label="Mostrar contraseña"><span data-icon="eye"></span></button></div>
+          <label class="check-row"><input type="checkbox" checked /><span>Recordar mi sesión</span></label>
+          <p class="form-error" id="formError" aria-live="polite"></p>
+          <button class="primary-button" type="submit"><span>Ingresar</span><span data-icon="arrow-right"></span></button>
+          <p class="demo-note">Demo: usa los datos precargados para ingresar.</p>
+        </form>
+      </div>
+    </section>
+
+    <div class="app-shell hidden" id="appShell">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand"><div class="brand-mark"><span>N</span></div><div><strong>NUTRIMEJOR</strong><small>Gestión nutricional</small></div></div>
+        <nav id="mainNav">
+          <p class="nav-label">Principal</p>
+          <button class="nav-item active" data-page="inicio"><span data-icon="home"></span><span>Inicio</span></button>
+          <button class="nav-item" data-page="nuevo-paciente"><span data-icon="user-plus"></span><span>Nuevo paciente</span></button>
+          <button class="nav-item" data-page="pacientes"><span data-icon="users"></span><span>Mis pacientes</span><b>24</b></button>
+          <p class="nav-label">Herramientas</p>
+          <button class="nav-item nav-parent" id="catalogToggle"><span data-icon="book"></span><span>Catálogos</span><i data-icon="chevron"></i></button>
+          <div class="submenu" id="catalogMenu">
+            <button data-page="recetas">Mis recetas</button>
+            <button data-page="alimentos">Mis alimentos</button>
+            <button data-page="dietas">Mis dietas</button>
+          </div>
+          <button class="nav-item" data-page="calculos"><span data-icon="calculator"></span><span>Cálculos dietéticos</span></button>
+          <button class="nav-item" data-page="configuracion"><span data-icon="settings"></span><span>Configuración</span></button>
+        </nav>
+        <div class="sidebar-profile"><div class="avatar">AM</div><div><strong>Ana Morales</strong><small>Nutricionista</small></div><button id="logoutButton" aria-label="Cerrar sesión"><span data-icon="logout"></span></button></div>
+      </aside>
+      <div class="main-area">
+        <header class="topbar"><button class="menu-button" id="menuButton" aria-label="Abrir menú"><span data-icon="menu"></span></button><div><p id="dateText"></p><h2 id="pageTitle">Inicio</h2></div><div class="top-actions"><button aria-label="Notificaciones"><span data-icon="bell"></span><i></i></button><div class="avatar">AM</div></div></header>
+        <main id="pageContent"></main>
+      </div>
+      <button class="mobile-overlay" id="mobileOverlay" aria-label="Cerrar menú"></button>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
