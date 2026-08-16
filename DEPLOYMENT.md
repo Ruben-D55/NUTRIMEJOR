@@ -3,8 +3,11 @@
 ## Desarrollo local
 
 1. Instala SQL Server 2022 y ejecuta `database/schema.sql` con SSMS.
-2. Copia `.env.example` como `.env.local` y completa las credenciales.
-3. Ejecuta `npm install` y `npm run dev`.
+2. Edita la contraseña de `database/crear_usuario_local.sql` y ejecútalo con SSMS.
+3. Desde PowerShell ejecuta `./scripts/configurar-local.ps1` para crear `.env.local` y generar automáticamente el JWT.
+4. Ejecuta `npm install` y `npm run dev`.
+
+`.env.local` contiene secretos, está ignorado por Git y nunca debe subirse al repositorio.
 
 ## Producción recomendada
 
