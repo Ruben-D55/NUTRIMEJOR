@@ -1,0 +1,16 @@
+export class DomainError extends Error {
+  constructor(message, status = 400, code = "DOMAIN_ERROR") {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
+}
+
+export const unauthorized = (message = "Sesión inválida o vencida.") =>
+  new DomainError(message, 401, "UNAUTHORIZED");
+export const notFound = (message = "Paciente no encontrado.") =>
+  new DomainError(message, 404, "NOT_FOUND");
+export const conflict = (message = "Conflicto.", code = "CONFLICT") =>
+  new DomainError(message, 409, code);
+export const unavailable = (message) =>
+  new DomainError(message, 503, "DEPENDENCY_UNAVAILABLE");

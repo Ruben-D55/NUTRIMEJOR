@@ -1,0 +1,85 @@
+openapi: 3.1.0
+info:
+  title: Nutrimejor Scheduling API
+  version: 1.1.0
+  description: Disponibilidad, agenda, conflictos e historial de estados.
+paths:
+  /health/live:
+    get:
+      responses:
+        '200': { description: Proceso activo }
+  /health/ready:
+    get:
+      responses:
+        '200': { description: Servicio listo }
+  /v1/appointments:
+    get:
+      parameters:
+        - in: query
+          name: patientId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+      responses:
+        '200': { description: Listado }
+    post:
+      responses:
+        '201': { description: Creado }
+  /v1/appointments/{id}:
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Encontrado }
+        '404': { description: No encontrado }
+  /v1/appointments/{id}/status:
+    post:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Estado actualizado }
+        '409': { description: Transición o versión inválida }
+  /v1/appointments/{id}/history:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      responses:
+        '200': { description: Historial auditable de estados }
+  /v1/availability:
+    get:
+      responses:
+        '200': { description: Reglas y excepciones del profesional }
+  /v1/availability/rules:
+    post:
+      responses:
+        '201': { description: Regla semanal creada }
+  /v1/availability/exceptions:
+    post:
+      responses:
+        '201': { description: Excepción creada }
+  /v1/availability/slots:
+    get:
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200': { description: 'Ventanas, excepciones y ocupación' }

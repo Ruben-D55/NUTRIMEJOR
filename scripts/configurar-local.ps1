@@ -1,37 +1,42 @@
 $ErrorActionPreference = "Stop"
-function Read-WithDefault([string]$Label,[string]$DefaultValue){$value=Read-Host "$Label [$DefaultValue]";if([string]::IsNullOrWhiteSpace($value)){return $DefaultValue};return $value}
-if(-not(Get-Command node -ErrorAction SilentlyContinue)){throw "Node.js no está instalado o no aparece en PATH."}
-Write-Host "Configurando NUTRIMEJOR con SQL Server..." -ForegroundColor Green
-$server=Read-WithDefault "Servidor SQL Server" "LENOVOW11RYZEN5"
-$database=Read-WithDefault "Nombre de la base" "Nutrimejor"
-$auth=Read-WithDefault "Autenticación: windows o sql" "windows"
-$jwtSecret=node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
-if($auth.ToLower()-eq "windows"){
-$content=@"
-DB_AUTH_MODE=windows
-DB_SERVER=$server
-DB_NAME=$database
+
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    throw "Node.js no está instalado o no aparece en PATH."
+}
+
+function New-Secret([int]$Bytes = 48) {
+    node -e "console.log(require('crypto').randomBytes($Bytes).toString('base64url'))"
+}
+
+function New-SqlPassword {
+    "Nm1!" + (New-Secret 24)
+}
+
+$serviceKey = New-Secret 48
+$jwtSecret = New-Secret 64
+$identityPassword = New-SqlPassword
+$patientsPassword = New-SqlPassword
+$catalogsPassword = New-SqlPassword
+
+$composeEnvironment = @"
+SERVICE_API_KEY=$serviceKey
 JWT_SECRET=$jwtSecret
+IDENTITY_DB_PASSWORD=$identityPassword
+PATIENTS_DB_PASSWORD=$patientsPassword
+CATALOGS_DB_PASSWORD=$catalogsPassword
+"@
+
+$webEnvironment = @"
+IDENTITY_API_URL=http://localhost:4001
+PATIENTS_API_URL=http://localhost:4002
+CATALOGS_API_URL=http://localhost:4003
+SERVICE_API_KEY=$serviceKey
+SERVICE_TIMEOUT_MS=5000
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 "@
-}else{
-$port=Read-WithDefault "Puerto SQL Server" "1433"
-$user=Read-WithDefault "Usuario SQL Server" "nutrimejor_app"
-$securePassword=Read-Host "Contraseña de SQL Server" -AsSecureString
-$pointer=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
-try{$password=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer);$content=@"
-DB_AUTH_MODE=sql
-DB_SERVER=$server
-DB_PORT=$port
-DB_NAME=$database
-DB_USER=$user
-DB_PASSWORD=$password
-DB_ENCRYPT=false
-DB_TRUST_CERTIFICATE=true
-JWT_SECRET=$jwtSecret
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-"@}finally{if($pointer-ne[IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)};$password=$null}
-}
-Set-Content -Path ".env.local" -Value $content -Encoding UTF8
-Write-Host ".env.local creado para $server usando autenticación $auth." -ForegroundColor Green
-Write-Host "Ejecuta npm install y después npm run dev." -ForegroundColor Cyan
+
+Set-Content -LiteralPath ".env" -Value $composeEnvironment -Encoding UTF8
+Set-Content -LiteralPath ".env.local" -Value $webEnvironment -Encoding UTF8
+
+Write-Host "Configuración local creada para la arquitectura de servicios." -ForegroundColor Green
+Write-Host "Ejecuta: docker compose up --build" -ForegroundColor Cyan

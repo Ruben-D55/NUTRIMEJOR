@@ -1,0 +1,76 @@
+asyncapi: 3.0.0
+info:
+  title: NUTRIMEJOR Domain Events
+  version: 1.0.0
+  description: Contrato del sobre común y catálogo versionado de eventos publicados por outbox.
+defaultContentType: application/json
+x-event-types:
+  - patients.created.v1
+  - patients.updated.v1
+  - patients.archived.v1
+  - patients.assigned.v1
+  - subscriptions.started.v1
+  - subscriptions.expired.v1
+  - subscriptions.plan_changed.v1
+  - subscriptions.canceled.v1
+  - subscriptions.reactivated.v1
+  - clinical.consultation.created.v1
+  - clinical.consultation.published.v1
+  - clinical.consultation.corrected.v1
+  - clinical.entry.changed.v1
+  - clinical.diagnosis.created.v1
+  - clinical.goal.created.v1
+  - clinical.followUp.created.v1
+  - clinical.legacy-history.imported.v1
+  - measurements.session.recorded.v1
+  - measurements.sport.assessment.recorded.v1
+  - nutrition.assessment.created.v1
+  - nutrition.assessment.completed.v1
+  - planning.plan.created.v1
+  - planning.plan.published.v1
+  - scheduling.appointment.scheduled.v1
+  - scheduling.appointment.confirmed.v1
+  - scheduling.appointment.completed.v1
+  - scheduling.appointment.cancelled.v1
+  - scheduling.appointment.no_show.v1
+  - notifications.created.v1
+  - notifications.status_changed.v1
+  - documents.created.v1
+  - documents.status_changed.v1
+  - reporting.created.v1
+  - reporting.status_changed.v1
+channels:
+  domainEvents:
+    address: nutrimejor.events
+    messages:
+      domainEvent:
+        $ref: '#/components/messages/DomainEvent'
+operations:
+  publishDomainEvent:
+    action: send
+    channel:
+      $ref: '#/channels/domainEvents'
+    messages:
+      - $ref: '#/channels/domainEvents/messages/domainEvent'
+components:
+  messages:
+    DomainEvent:
+      name: DomainEvent
+      title: Evento de dominio NUTRIMEJOR
+      payload:
+        $ref: '#/components/schemas/DomainEventEnvelope'
+  schemas:
+    DomainEventEnvelope:
+      type: object
+      additionalProperties: false
+      required: [eventId, eventType, occurredAt, actorId, organizationId, aggregateId, data]
+      properties:
+        eventId: { type: string, format: uuid }
+        eventType:
+          type: string
+          pattern: '^[a-z][A-Za-z0-9]*(\\.[a-zA-Z0-9_-]+)+\\.v[1-9][0-9]*$'
+        occurredAt: { type: string, format: date-time }
+        actorId: { type: integer }
+        organizationId: { type: string, format: uuid }
+        aggregateId: { type: string, format: uuid }
+        data: { type: object, additionalProperties: true }

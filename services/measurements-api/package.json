@@ -1,0 +1,19 @@
+{
+  "name": "@nutrimejor/measurements-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "migrate": "node src/migrate.js",
+    "dev": "node --watch src/index.js",
+    "check": "node --check src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.4",
+    "mssql": "12.7.0",
+    "zod": "4.4.3",
+    "jose": "^6.2.9"
+  }
+}

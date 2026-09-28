@@ -1,0 +1,39 @@
+﻿@page
+@model IndexModel
+@{ ViewData["Title"] = "Dashboard"; ViewData["Active"] = "dashboard"; }
+
+<div class="page-heading d-flex flex-column flex-lg-row align-items-lg-end justify-content-between gap-3">
+    <div><span class="eyebrow">RESUMEN EJECUTIVO</span><h1>Buenos días, @HttpContext.Session.GetString("UserName")</h1><p>Esta es la situación actual de tu consulta.</p></div>
+    <div class="d-flex gap-2"><a asp-page="/Modules/Index" asp-route-key="patients" class="btn btn-light border"><span class="icon bi-people"></span> Ver pacientes</a><a asp-page="/Modules/Index" asp-route-key="scheduling" class="btn btn-success"><span class="icon bi-calendar-check"></span> Nueva cita</a></div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-sm-6 col-xl-3"><div class="metric-card"><div class="metric-icon bi-people"></div><div><span>Pacientes</span><strong>@Model.Patients</strong><small>registros activos</small></div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="metric-card"><div class="metric-icon bi-calendar-check"></div><div><span>Citas</span><strong>@Model.Appointments</strong><small>en agenda</small></div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="metric-card"><div class="metric-icon bi-calendar2-week"></div><div><span>Planes</span><strong>@Model.Plans</strong><small>alimentarios</small></div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="metric-card"><div class="metric-icon bi-file-earmark-pdf"></div><div><span>Documentos</span><strong>@Model.Documents</strong><small>generados</small></div></div></div>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-8"><section class="panel h-100">
+        <div class="panel-header"><div><span class="eyebrow">RENDIMIENTO</span><h2>Tiempo de respuesta por módulo</h2></div><span class="badge-soft">En vivo</span></div>
+        <div class="activity-chart" aria-label="Latencia de servicios">
+            @{ var chart = Model.Services.Take(7).ToArray(); var maxLatency = Math.Max(1, chart.Max(x => x.LatencyMs)); }
+            @foreach (var service in chart) { var height = Math.Max(12, (int)(service.LatencyMs * 90 / maxLatency)); <div class="chart-column"><div class="chart-value" style="height:@(height)%"><span>@service.LatencyMs ms</span></div><small>@service.Name</small></div> }
+        </div>
+    </section></div>
+    <div class="col-xl-4"><section class="panel h-100">
+        <div class="panel-header"><div><span class="eyebrow">PLATAFORMA</span><h2>Estado de servicios</h2></div><span class="live-dot"></span></div>
+        <div class="service-list">
+            @foreach (var service in Model.Services.Take(7))
+            { <a asp-page="/Modules/Index" asp-route-key="@service.Key" class="service-row"><span class="service-icon @service.Icon"></span><span><strong>@service.Name</strong><small>@(service.Online ? $"Operativo · {service.LatencyMs} ms" : "Sin conexión")</small></span><span class="status-dot @(service.Online ? "online" : "offline")"></span></a> }
+        </div>
+    </section></div>
+</div>
+
+<section class="module-strip mt-4">
+    <div><span class="eyebrow">ACCESO RÁPIDO</span><h2>Todos los módulos</h2></div>
+    <div class="module-shortcuts">
+        @foreach (var module in Model.Services.Skip(1).Take(6)) { <a asp-page="/Modules/Index" asp-route-key="@module.Key"><span class="@module.Icon"></span>@module.Name</a> }
+    </div>
+</section>

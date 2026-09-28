@@ -1,13 +1,400 @@
+name: nutrimejor
+
+x-sql-environment: &sql-environment
+  ACCEPT_EULA: "Y"
+  MSSQL_PID: "Express"
+  MSSQL_MEMORY_LIMIT_MB: "1024"
+
+x-api-common: &api-common
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "node", "-e", "fetch('http://localhost:'+process.env.PORT+'/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+    interval: 10s
+    timeout: 3s
+    retries: 10
+  environment:
+    DB_USER: sa
+    DB_PORT: 1433
+    DB_ENCRYPT: "false"
+    DB_TRUST_CERTIFICATE: "true"
+    SERVICE_API_KEY: ${SERVICE_API_KEY:-local-service-key-change-me-1234}
+    RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
+
 services:
-  sqlserver:
+  identity-db:
     image: mcr.microsoft.com/mssql/server:2022-latest
-    environment: {ACCEPT_EULA: Y, MSSQL_SA_PASSWORD: "${DB_PASSWORD}"}
-    ports: ["1433:1433"]
-    volumes: ["sql_data:/var/opt/mssql"]
+    restart: unless-stopped
+    environment:
+      <<: *sql-environment
+      MSSQL_SA_PASSWORD: ${IDENTITY_DB_PASSWORD:-IdentityLocalPassword123!}
+    ports:
+      - "14331:1433"
+    volumes:
+      - identity_data:/var/opt/mssql
+
+  patients-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
+    environment:
+      <<: *sql-environment
+      MSSQL_SA_PASSWORD: ${PATIENTS_DB_PASSWORD:-PatientsLocalPassword123!}
+    ports:
+      - "14332:1433"
+    volumes:
+      - patients_data:/var/opt/mssql
+
+  catalogs-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
+    environment:
+      <<: *sql-environment
+      MSSQL_SA_PASSWORD: ${CATALOGS_DB_PASSWORD:-CatalogsLocalPassword123!}
+    ports:
+      - "14333:1433"
+    volumes:
+      - catalogs_data:/var/opt/mssql
+
+  platform-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    profiles: ["full"]
+    restart: unless-stopped
+    environment:
+      <<: *sql-environment
+      MSSQL_MEMORY_LIMIT_MB: "1536"
+      MSSQL_SA_PASSWORD: ${PLATFORM_DB_PASSWORD:-PlatformLocalPassword123!}
+    ports:
+      - "14334:1433"
+    volumes:
+      - platform_data:/var/opt/mssql
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-nutrimejor}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-RabbitLocalPassword123!}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  redis:
+    image: redis:8-alpine
+    profiles: ["full"]
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  identity-api:
+    <<: *api-common
+    build: ./services/identity-api
+    depends_on:
+      - identity-db
+    environment:
+      DB_SERVER: identity-db
+      DB_PORT: 1433
+      DB_NAME: NutrimejorIdentity
+      JWT_PRIVATE_KEY_PATH: /data/jwt-private.pem
+      JWT_PUBLIC_KEY_PATH: /data/jwt-public.pem
+      EXPOSE_DEVELOPMENT_TOKENS: ${EXPOSE_DEVELOPMENT_TOKENS:-true}
+      DB_USER: sa
+      DB_PASSWORD: ${IDENTITY_DB_PASSWORD:-IdentityLocalPassword123!}
+      DB_ENCRYPT: "false"
+      DB_TRUST_CERTIFICATE: "true"
+      DB_POOL_MAX: 10
+      SERVICE_API_KEY: ${SERVICE_API_KEY:-local-service-key-change-me-1234}
+      RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
+    volumes:
+      - identity_keys:/data
+    ports:
+      - "4001:4001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  patients-api:
+    <<: *api-common
+    build: ./services/patients-api
+    depends_on:
+      identity-api:
+        condition: service_healthy
+      patients-db:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+    environment:
+      DB_SERVER: patients-db
+      DB_PORT: 1433
+      DB_NAME: NutrimejorPatients
+      DB_USER: sa
+      DB_PASSWORD: ${PATIENTS_DB_PASSWORD:-PatientsLocalPassword123!}
+      DB_ENCRYPT: "false"
+      DB_TRUST_CERTIFICATE: "true"
+      DB_POOL_MAX: 15
+      IDENTITY_API_URL: http://identity-api:4001
+      IDENTITY_TIMEOUT_MS: 3000
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:-RabbitLocalPassword123!}@rabbitmq:5672
+      SERVICE_API_KEY: ${SERVICE_API_KEY:-local-service-key-change-me-1234}
+      RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
+    ports:
+      - "4002:4002"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4002/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  catalogs-api:
+    <<: *api-common
+    build: ./services/catalogs-api
+    depends_on:
+      identity-api:
+        condition: service_healthy
+      catalogs-db:
+        condition: service_started
+    environment:
+      DB_SERVER: catalogs-db
+      DB_PORT: 1433
+      DB_NAME: NutrimejorCatalogs
+      DB_USER: sa
+      DB_PASSWORD: ${CATALOGS_DB_PASSWORD:-CatalogsLocalPassword123!}
+      DB_ENCRYPT: "false"
+      DB_TRUST_CERTIFICATE: "true"
+      DB_POOL_MAX: 10
+      IDENTITY_API_URL: http://identity-api:4001
+      IDENTITY_TIMEOUT_MS: 3000
+      SERVICE_API_KEY: ${SERVICE_API_KEY:-local-service-key-change-me-1234}
+      RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
+    ports:
+      - "4003:4003"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4003/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  subscriptions-api:
+    <<: *api-common
+    profiles: ["full"]
+    build: ./services/subscriptions-api
+    depends_on:
+      identity-api:
+        condition: service_healthy
+      platform-db:
+        condition: service_started
+    environment: &platform-api-environment
+      DB_SERVER: platform-db
+      DB_PORT: 1433
+      DB_USER: sa
+      DB_PASSWORD: ${PLATFORM_DB_PASSWORD:-PlatformLocalPassword123!}
+      DB_ENCRYPT: "false"
+      DB_TRUST_CERTIFICATE: "true"
+      DB_POOL_MAX: 8
+      IDENTITY_API_URL: http://identity-api:4001
+      IDENTITY_TIMEOUT_MS: 3000
+      SERVICE_API_KEY: ${SERVICE_API_KEY:-local-service-key-change-me-1234}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:-RabbitLocalPassword123!}@rabbitmq:5672
+      DB_NAME: NutrimejorSubscriptions
+      RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
+    ports:
+      - "4004:4004"
+
+  clinical-api:
+    <<: *api-common
+    profiles: ["full"]
+    build: ./services/clinical-api
+    depends_on:
+      identity-api: { condition: service_healthy }
+      platform-db: { condition: service_started }
+    environment:
+      <<: *platform-api-environment
+      DB_NAME: NutrimejorClinical
+    ports:
+      - "4005:4005"
+
+  measurements-api:
+    <<: *api-common
+    profiles: ["full"]
+    build: ./services/measurements-api
+    depends_on:
+      identity-api: { condition: service_healthy }
+      platform-db: { condition: service_started }
+      subscriptions-api: { condition: service_healthy }
+    environment:
+      <<: *platform-api-environment
+      DB_NAME: NutrimejorMeasurements
+      SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
+    ports:
+      - "4006:4006"
+
+  nutrition-api:
+    <<: *api-common
+    profiles: ["full"]
+    build: ./services/nutrition-api
+    depends_on:
+      identity-api: { condition: service_healthy }
+      platform-db: { condition: service_started }
+      catalogs-api: { condition: service_healthy }
+      subscriptions-api: { condition: service_healthy }
+    environment:
+      <<: *platform-api-environment
+      DB_NAME: NutrimejorNutrition
+      CATALOGS_API_URL: http://catalogs-api:4003
+      SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
+    ports:
+      - "4007:4007"
+
+  planning-api:
+    <<: *api-common
+    profiles: ["full"]
+    build: ./services/planning-api
+    depends_on:
+      identity-api: { condition: service_healthy }
+      platform-db: { condition: service_started }
+      catalogs-api: { condition: service_healthy }
+      subscriptions-api: { condition: service_healthy }
+    environment:
+      <<: *platform-api-environment
+      DB_NAME: NutrimejorPlanning
+      CATALOGS_API_URL: http://catalogs-api:4003
+      SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
+    ports:
+      - "4008:4008"
+
+  scheduling-api:
+    <<: *api-common
+    profiles: ["full"]
+    build: ./services/scheduling-api
+    depends_on:
+      identity-api: { condition: service_healthy }
+      platform-db: { condition: service_started }
+      rabbitmq: { condition: service_started }
+    environment:
+      <<: *platform-api-environment
+      DB_NAME: NutrimejorScheduling
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:-RabbitLocalPassword123!}@rabbitmq:5672
+    ports:
+      - "4009:4009"
+
+  notifications-api:
+    <<: *api-common
+    profiles: ["full"]
+    build: ./services/notifications-api
+    depends_on:
+      identity-api: { condition: service_healthy }
+      platform-db: { condition: service_started }
+      rabbitmq: { condition: service_started }
+      subscriptions-api: { condition: service_healthy }
+    environment:
+      <<: *platform-api-environment
+      DB_NAME: NutrimejorNotifications
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:-RabbitLocalPassword123!}@rabbitmq:5672
+      SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
+    ports:
+      - "4010:4010"
+
+  documents-api:
+    <<: *api-common
+    profiles: ["full"]
+    build: ./services/documents-api
+    depends_on:
+      identity-api: { condition: service_healthy }
+      platform-db: { condition: service_started }
+      subscriptions-api: { condition: service_healthy }
+    environment:
+      <<: *platform-api-environment
+      DB_NAME: NutrimejorDocuments
+      OBJECT_STORAGE_PATH: /data/documents
+      SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
+    ports:
+      - "4011:4011"
+    volumes:
+      - documents_data:/data/documents
+
+  reporting-api:
+    <<: *api-common
+    profiles: ["full"]
+    build: ./services/reporting-api
+    depends_on:
+      identity-api: { condition: service_healthy }
+      platform-db: { condition: service_started }
+      rabbitmq: { condition: service_started }
+    environment:
+      <<: *platform-api-environment
+      DB_NAME: NutrimejorReporting
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:-RabbitLocalPassword123!}@rabbitmq:5672
+    ports:
+      - "4012:4012"
+
   web:
     build: .
-    depends_on: [sqlserver]
-    ports: ["3000:3000"]
-    env_file: .env
-    environment: {DB_SERVER: sqlserver, DB_ENCRYPT: "false", DB_TRUST_CERTIFICATE: "true"}
-volumes: {sql_data: {}}
+    restart: unless-stopped
+    depends_on:
+      identity-api:
+        condition: service_healthy
+      patients-api:
+        condition: service_healthy
+      catalogs-api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      IDENTITY_API_URL: http://identity-api:4001
+      PATIENTS_API_URL: http://patients-api:4002
+      CATALOGS_API_URL: http://catalogs-api:4003
+      SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
+      CLINICAL_API_URL: http://clinical-api:4005
+      MEASUREMENTS_API_URL: http://measurements-api:4006
+      NUTRITION_API_URL: http://nutrition-api:4007
+      PLANNING_API_URL: http://planning-api:4008
+      SCHEDULING_API_URL: http://scheduling-api:4009
+      NOTIFICATIONS_API_URL: http://notifications-api:4010
+      DOCUMENTS_API_URL: http://documents-api:4011
+      REPORTING_API_URL: http://reporting-api:4012
+      SERVICE_API_KEY: ${SERVICE_API_KEY:-local-service-key-change-me-1234}
+      SERVICE_TIMEOUT_MS: 5000
+    ports:
+      - "3000:3000"
+
+  razor-web:
+    profiles: ["full"]
+    build: ./frontend-razor/Nutrimejor.Web
+    restart: unless-stopped
+    depends_on:
+      identity-api: { condition: service_healthy }
+      patients-api: { condition: service_healthy }
+      catalogs-api: { condition: service_healthy }
+      reporting-api: { condition: service_healthy }
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ServiceApiKey: ${SERVICE_API_KEY:-local-service-key-change-me-1234}
+      Services__identity: http://identity-api:4001
+      Services__patients: http://patients-api:4002
+      Services__catalogs: http://catalogs-api:4003
+      Services__subscriptions: http://subscriptions-api:4004
+      Services__clinical: http://clinical-api:4005
+      Services__measurements: http://measurements-api:4006
+      Services__nutrition: http://nutrition-api:4007
+      Services__planning: http://planning-api:4008
+      Services__scheduling: http://scheduling-api:4009
+      Services__notifications: http://notifications-api:4010
+      Services__documents: http://documents-api:4011
+      Services__reporting: http://reporting-api:4012
+    ports:
+      - "5050:8080"
+
+volumes:
+  identity_data:
+  identity_keys:
+  patients_data:
+  catalogs_data:
+  platform_data:
+  rabbitmq_data:
+  redis_data:
+  documents_data:

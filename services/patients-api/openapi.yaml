@@ -1,0 +1,230 @@
+openapi: 3.1.0
+info:
+  title: NUTRIMEJOR Patients API
+  version: 1.1.0
+  description: Gestión administrativa de pacientes aislada por organización.
+security:
+  - bearerAuth: []
+    serviceKey: []
+paths:
+  /v1/patients:
+    get:
+      summary: Buscar pacientes
+      parameters:
+        - { in: query, name: q, schema: { type: string, maxLength: 120 } }
+        - { in: query, name: status, schema: { $ref: '#/components/schemas/PatientStatus' } }
+        - { in: query, name: tagId, schema: { type: string, format: uuid } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { in: query, name: cursor, schema: { type: string } }
+      responses:
+        '200': { description: Lista simple o página de pacientes de la organización }
+    post:
+      summary: Registrar paciente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PatientInput' }
+      responses:
+        '201': { description: Paciente creado }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/patients/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/PatientId' }
+    get:
+      summary: Obtener ficha administrativa
+      responses:
+        '200':
+          description: Paciente encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Patient' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      summary: Actualizar ficha administrativa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PatientInput' }
+      responses:
+        '200': { description: Paciente actualizado }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      summary: Archivar paciente
+      responses:
+        '204': { description: Paciente archivado }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/patients/{id}/history:
+    parameters:
+      - { $ref: '#/components/parameters/PatientId' }
+    get:
+      summary: Consultar historial administrativo
+      responses: { '200': { description: Eventos administrativos } }
+    post:
+      summary: Agregar nota administrativa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, notes]
+              properties:
+                type:
+                  type: string
+                  enum: [administrative_note, contact_verified, documentation_received, consent_reviewed, assignment_note]
+                notes: { type: string, minLength: 2, maxLength: 5000 }
+      responses:
+        '201': { description: Nota administrativa creada }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/patients/{id}/contacts:
+    parameters: [{ $ref: '#/components/parameters/PatientId' }]
+    get:
+      responses: { '200': { description: Contactos del paciente } }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ContactInput' }
+      responses:
+        '201': { description: Contacto creado }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/patients/{id}/emergency-contacts:
+    parameters: [{ $ref: '#/components/parameters/PatientId' }]
+    get:
+      responses: { '200': { description: Contactos de emergencia } }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmergencyContactInput' }
+      responses:
+        '201': { description: Contacto de emergencia creado }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/patients/{id}/assignments:
+    parameters: [{ $ref: '#/components/parameters/PatientId' }]
+    get:
+      responses: { '200': { description: Profesionales asignados } }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AssignmentInput' }
+      responses:
+        '201': { description: Asignación creada o reactivada }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/patients/{id}/tags:
+    parameters: [{ $ref: '#/components/parameters/PatientId' }]
+    get:
+      responses: { '200': { description: Etiquetas del paciente } }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TagInput' }
+      responses:
+        '201': { description: Etiqueta asociada }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/patients/{id}/consents:
+    parameters: [{ $ref: '#/components/parameters/PatientId' }]
+    get:
+      responses: { '200': { description: Consentimientos del paciente } }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConsentInput' }
+      responses:
+        '201': { description: Consentimiento registrado }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  parameters:
+    PatientId:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    NotFound: { description: Paciente inexistente en la organización activa }
+    Conflict: { description: Documento o correo duplicado en la organización }
+  schemas:
+    PatientStatus:
+      type: string
+      enum: [Activo, Inactivo]
+    PatientInput:
+      type: object
+      required: [names, lastNames, status]
+      properties:
+        names: { type: string, minLength: 2, maxLength: 100 }
+        lastNames: { type: string, minLength: 2, maxLength: 100 }
+        preferredName: { type: string, maxLength: 100 }
+        documentType: { type: string, maxLength: 20 }
+        document: { type: string, maxLength: 30 }
+        birthDate: { type: string, format: date }
+        sex: { type: string, maxLength: 20 }
+        phone: { type: string, maxLength: 30 }
+        email: { type: string, format: email }
+        address: { type: string, maxLength: 250 }
+        city: { type: string, maxLength: 100 }
+        country: { type: string, minLength: 2, maxLength: 2 }
+        objective: { type: string, maxLength: 300 }
+        photoPath: { type: string, maxLength: 500 }
+        status: { $ref: '#/components/schemas/PatientStatus' }
+        version: { type: integer, minimum: 1 }
+    Patient:
+      allOf:
+        - { $ref: '#/components/schemas/PatientInput' }
+        - type: object
+          required: [id, version, createdAt, updatedAt]
+          properties:
+            id: { type: string, format: uuid }
+            version: { type: integer }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    ContactInput:
+      type: object
+      required: [type, value]
+      properties:
+        type: { type: string, enum: [phone, email, whatsapp, other] }
+        value: { type: string, minLength: 2, maxLength: 180 }
+        label: { type: string, maxLength: 60 }
+        primary: { type: boolean, default: false }
+    EmergencyContactInput:
+      type: object
+      required: [name, phone]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 150 }
+        relationship: { type: string, maxLength: 80 }
+        phone: { type: string, minLength: 5, maxLength: 30 }
+        email: { type: string, format: email }
+        primary: { type: boolean, default: true }
+    AssignmentInput:
+      type: object
+      required: [userId]
+      properties:
+        userId: { type: integer, minimum: 1 }
+        role: { type: string, enum: [NUTRITIONIST, ASSISTANT], default: NUTRITIONIST }
+    TagInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 60 }
+        color: { type: string, pattern: '^#[0-9A-Fa-f]{6}$', default: '#047857' }
+    ConsentInput:
+      type: object
+      required: [type, status, documentVersion]
+      properties:
+        type: { type: string, minLength: 2, maxLength: 40 }
+        status: { type: string, enum: [granted, revoked] }
+        documentVersion: { type: string, minLength: 1, maxLength: 40 }
+        evidence: { type: string, maxLength: 500 }
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    serviceKey: { type: apiKey, in: header, name: x-service-key }

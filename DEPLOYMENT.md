@@ -1,33 +1,90 @@
 # Despliegue de NUTRIMEJOR
 
-## Desarrollo local
+## Unidades desplegables
 
-1. Instala SQL Server 2022 y ejecuta `database/schema.sql` con SSMS.
-2. Edita la contraseña de `database/crear_usuario_local.sql` y ejecútalo con SSMS.
-3. Desde PowerShell ejecuta `./scripts/configurar-local.ps1` para crear `.env.local` y generar automáticamente el JWT.
-4. Ejecuta `npm install` y `npm run dev`.
+La solución contiene una web/BFF y doce APIs independientes: Identity, Patients,
+Catalogs, Subscriptions, Clinical, Measurements, Nutrition, Planning, Scheduling,
+Notifications, Documents y Reporting. Cada API tiene su propia base lógica, usuario y
+permisos. Ningún servicio consulta tablas de otro servicio.
 
-`.env.local` contiene secretos, está ignorado por Git y nunca debe subirse al repositorio.
+`docker-compose.yml` agrupa nueve bases en `platform-db` solamente para desarrollo
+local con pocos recursos. Ese contenedor no convierte las bases en un esquema
+compartido. En producción, cada módulo debe usar una instancia o base administrada con
+credenciales propias, límites de conexiones y ciclo de respaldo independiente.
 
-### Autenticación de Windows
+## Configuración privada y red
 
-En la computadora `LENOVOW11RYZEN5`, selecciona `windows` al ejecutar el script. La aplicación usará la sesión de Windows y no pedirá usuario ni contraseña de SQL Server. Esta modalidad requiere Windows y el controlador ODBC de SQL Server. Para Docker o Azure utiliza autenticación `sql`.
+- Inyecta `SERVICE_API_KEY`, credenciales SQL, claves privadas y credenciales de
+  proveedores desde el gestor de secretos. No las guardes en imágenes ni repositorios.
+- Usa `DB_ENCRYPT=true`, certificados verificados y TLS 1.2 o superior fuera del
+  entorno local.
+- Expón públicamente sólo el BFF o gateway. Mantén APIs, SQL Server, RabbitMQ, Redis y
+  almacenamiento de objetos en redes privadas.
+- Sustituye la clave compartida entre servicios por identidad de carga de trabajo o
+  mTLS cuando la plataforma de producción esté elegida.
+- Configura orígenes permitidos, límites de cuerpo, rate limiting y protección del
+  login en el gateway.
 
-## Producción recomendada
+## Despliegue y migraciones
 
-- Web: contenedor Docker en Azure App Service.
-- Base de datos: Azure SQL Database.
-- HTTPS: obligatorio; Azure lo configura automáticamente.
-- Secretos: configura `DB_*` y `JWT_SECRET` como variables privadas de App Service.
+1. Crea bases, usuarios de mínimo privilegio, RabbitMQ y almacenamiento de objetos.
+2. Configura `RUN_MIGRATIONS_ON_STARTUP=false` y ejecuta las migraciones como un
+   trabajo único antes de cambiar tráfico:
 
-Antes de publicar cambia `JWT_SECRET`, usa una contraseña fuerte, activa `DB_ENCRYPT=true`, ejecuta el esquema en Azure SQL y limita el firewall de SQL al servidor web.
+   ```powershell
+   ./scripts/migrate-databases.ps1
+   ```
 
-## Primer administrador
+   Cada imagen también acepta `node src/migrate.js`, útil como Job de Kubernetes o
+   tarea previa del proveedor. El valor automático `true` se conserva para desarrollo.
+3. Despliega Identity y Catalogs; luego Subscriptions y Patients; después los dominios
+   clínicos; finalmente workers, Reporting, Documents y BFF.
+4. Comprueba `/health/live`, `/health/ready` y `/health` antes de habilitar tráfico.
+5. Ejecuta `npm run validate:openapi`, `npm run verify` y las pruebas de humo relevantes.
+6. Conserva la imagen y el esquema anteriores durante la ventana de reversión.
 
-Registra una cuenta y ejecuta:
+## Escalado y disponibilidad
 
-```sql
-UPDATE Usuarios SET Rol='ADMIN' WHERE Email='administrador@dominio.com';
+- Ejecuta al menos dos réplicas de APIs sin estado y distribúyelas entre zonas.
+- Ejecuta workers por separado y usa colas durables, reintentos limitados y dead-letter.
+- Dimensiona cada pool SQL respecto al límite de su base; considera el número de réplicas.
+- Mide solicitudes, errores, latencia p50/p95/p99, saturación del pool, retraso de colas,
+  trabajos fallidos y consumo de almacenamiento.
+- El BFF tiene timeout finito. Reporting, notificaciones y documentos pueden degradarse
+  sin impedir que se registren datos clínicos.
+
+## Respaldo y restauración local
+
+Con el perfil completo en ejecución:
+
+```powershell
+./scripts/backup-databases.ps1
+./scripts/restore-drill.ps1 -BackupDirectory ./backups/AAAAMMDD-HHMMSS
 ```
 
-Las cuentas públicas siempre nacen con rol `NUTRICIONISTA`.
+El respaldo usa `COPY_ONLY` y checksum, genera SHA-256 y un manifiesto. La compresión
+debe activarse en la política del SQL administrado cuando la edición la soporte. El
+simulacro valida el hash, restaura cada copia con un nombre temporal, ejecuta
+`DBCC CHECKDB` y elimina únicamente esa base temporal. Programa respaldos administrados
+en producción y prueba la restauración al menos trimestralmente. Copia también el
+almacenamiento de Documents; una copia SQL por sí sola no recupera los PDF.
+
+## Prueba de salud bajo concurrencia
+
+```powershell
+npm run smoke:health-load
+$env:CONCURRENCY=40; $env:REQUESTS_PER_SERVICE=100; npm run smoke:health-load
+```
+
+Esta prueba detecta errores y resume p50, p95 y máximo. No reemplaza una prueba de carga
+de escenarios autenticados con datos representativos.
+
+## Migración de datos existentes
+
+Migra primero identidad, luego ficha administrativa y finalmente catálogos. Conserva
+UUID, registra el origen y compara cantidades, valores agregados y muestras por
+organización. Deja la base anterior en lectura durante el periodo de reversión y
+documenta el momento después del cual ya no se aceptará volver al esquema previo.
+
+El modelo de amenazas, alertas y procedimiento de incidentes está en
+[`docs/SECURITY_AND_OPERATIONS.md`](./docs/SECURITY_AND_OPERATIONS.md).
