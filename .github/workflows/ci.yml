@@ -2,7 +2,12 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
@@ -31,3 +36,69 @@ jobs:
       - run: docker compose config --quiet
       - run: docker compose --profile full config --quiet
       - run: docker compose --profile full build
+
+  postgres-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Start real PostgreSQL integration database
+        run: docker compose -f tests/integration/docker-compose.postgres.yml up -d --wait --wait-timeout 120
+      - name: Verify the twelve isolated service databases
+        run: npm run test:integration:postgres
+      - name: PostgreSQL logs
+        if: failure()
+        run: docker compose -f tests/integration/docker-compose.postgres.yml logs --no-color
+      - name: Stop PostgreSQL integration database
+        if: always()
+        run: docker compose -f tests/integration/docker-compose.postgres.yml down -v
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start the complete application
+        run: docker compose --profile full up -d --build --wait --wait-timeout 420
+      - name: Wait for the web application
+        run: |
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:3000/login > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose --profile full logs --no-color --tail 100 web
+          exit 1
+      - name: Run browser journeys
+        run: npm run test:e2e
+        env:
+          CI: true
+          E2E_BASE_URL: http://127.0.0.1:3000
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Application logs
+        if: failure()
+        run: docker compose --profile full logs --no-color --tail 300
+      - name: Stop the complete application
+        if: always()
+        run: docker compose --profile full down -v

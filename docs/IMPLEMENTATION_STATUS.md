@@ -1,5 +1,14 @@
 # Estado de implementación
 
+## Fase 2 — pruebas integrales
+
+- PostgreSQL 17 real con doce bases aisladas para contratos de persistencia.
+- Verificación de transacciones, rollback, JSONB, versión optimista y aislamiento entre dominios.
+- Playwright con Chromium para autenticación, recuperación, pacientes y recorridos clínicos completos.
+- Evidencias automáticas en `playwright-report` y `test-results` cuando una prueba falla.
+- Trabajos separados de GitHub Actions para validación estática, PostgreSQL y E2E.
+- El runtime operativo conserva temporalmente SQL Server; la migración de adaptadores y datos a PostgreSQL queda explícita como trabajo posterior.
+
 Fecha de referencia: 25 de septiembre de 2026.
 
 Esta tabla distingue infraestructura operativa de funciones clínicas terminadas. Que un

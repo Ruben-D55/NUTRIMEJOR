@@ -1,0 +1,12 @@
+CREATE DATABASE nutrimejor_identity;
+CREATE DATABASE nutrimejor_patients;
+CREATE DATABASE nutrimejor_catalogs;
+CREATE DATABASE nutrimejor_subscriptions;
+CREATE DATABASE nutrimejor_clinical;
+CREATE DATABASE nutrimejor_measurements;
+CREATE DATABASE nutrimejor_nutrition;
+CREATE DATABASE nutrimejor_planning;
+CREATE DATABASE nutrimejor_scheduling;
+CREATE DATABASE nutrimejor_notifications;
+CREATE DATABASE nutrimejor_documents;
+CREATE DATABASE nutrimejor_reporting;

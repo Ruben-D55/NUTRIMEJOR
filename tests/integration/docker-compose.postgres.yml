@@ -1,0 +1,20 @@
+name: nutrimejor-postgres-integration
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: nutrimejor
+      POSTGRES_PASSWORD: IntegrationPassword123!
+      POSTGRES_DB: postgres
+    ports:
+      - "55432:5432"
+    volumes:
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nutrimejor -d postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    tmpfs:
+      - /var/lib/postgresql/data
