@@ -1,1 +1,23 @@
-import{NextResponse}from"next/server";import bcrypt from"bcryptjs";import{db,sql}from"@/lib/server/db";import{register}from"@/lib/server/validation";import{cookieOptions,sign,apiError}from"@/lib/server/auth";export async function POST(req:Request){try{const x=register.parse(await req.json()),pool=await db(),found=await pool.request().input("email",sql.NVarChar,x.email).query("SELECT 1 n FROM Usuarios WHERE Email=@email");if(found.recordset.length)return NextResponse.json({error:"El correo ya está registrado."},{status:409});const hash=await bcrypt.hash(x.password,12),r=await pool.request().input("name",sql.NVarChar,x.name).input("email",sql.NVarChar,x.email).input("hash",sql.NVarChar,hash).query("INSERT INTO Usuarios(Nombre,Email,PasswordHash) OUTPUT INSERTED.IdUsuario id,INSERTED.Nombre name,INSERTED.Email email,INSERTED.Rol role VALUES(@name,@email,@hash)"),u=r.recordset[0],res=NextResponse.json({user:u},{status:201});res.cookies.set("nm_session",await sign(u),cookieOptions);return res}catch(e){return apiError(e)}}
+import { NextResponse } from "next/server";
+import { callService, refreshCookie, sessionCookie } from "@/lib/server/service-client";
+
+export async function POST(request: Request) {
+  try {
+    const response = await callService(
+      "identity",
+      "/v1/users",
+      { method: "POST", body: await request.text() },
+      request,
+    );
+    const data = await response.json();
+    if (!response.ok) return NextResponse.json(data, { status: response.status });
+
+    const result = NextResponse.json({ user: data.user }, { status: 201 });
+    result.cookies.set("nm_session", data.accessToken, sessionCookie);
+    result.cookies.set("nm_refresh", data.refreshToken, refreshCookie);
+    return result;
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: "El servicio de identidad no está disponible." }, { status: 503 });
+  }
+}

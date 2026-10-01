@@ -1,0 +1,36 @@
+@inject Nutrimejor.Web.Services.ModuleRegistry Modules
+@{ var active = ViewData["Active"]?.ToString() ?? ""; }
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] · NUTRIMEJOR</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="app-body">
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <a asp-page="/Index" class="sidebar-brand"><span class="brand-mark small">N</span><span><strong>NUTRIMEJOR</strong><small>Gestión profesional</small></span></a>
+            <nav class="sidebar-nav">
+                <span class="nav-caption">GENERAL</span>
+                <a asp-page="/Index" class="@(active == "dashboard" ? "active" : "")"><span class="nav-icon bi-grid"></span>Dashboard</a>
+                <span class="nav-caption">GESTIÓN</span>
+                @foreach (var module in Modules.All)
+                {
+                    <a asp-page="/Modules/Index" asp-route-key="@module.Key" class="@(active == module.Key ? "active" : "")"><span class="nav-icon @module.Icon"></span>@module.ShortName</a>
+                }
+            </nav>
+            <div class="sidebar-footer"><div class="user-avatar">@((Context.Session.GetString("UserName") ?? "U")[0])</div><div><strong>@(Context.Session.GetString("UserName") ?? "Profesional")</strong><small>@(Context.Session.GetString("UserRole") ?? "Profesional")</small></div><a asp-page="/Account/Logout" class="logout-link" title="Cerrar sesión">↗</a></div>
+        </aside>
+        <div class="content-shell">
+            <header class="topbar"><button class="mobile-menu" id="menuToggle" aria-label="Abrir menú">☰</button><div class="topbar-context"><span>Espacio de trabajo</span><strong>Consulta Nutricional</strong></div><div class="topbar-actions"><span class="system-online"><i></i> Sistema operativo</span><button class="round-button" title="Notificaciones">●</button></div></header>
+            <main class="main-content" role="main">@RenderBody()</main>
+        </div>
+    </div>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

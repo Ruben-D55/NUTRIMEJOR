@@ -1,0 +1,53 @@
+@page
+@model Nutrimejor.Web.Pages.Account.LoginModel
+@{ Layout = null; }
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Acceso · NUTRIMEJOR</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="auth-body">
+    <main class="auth-shell">
+        <section class="auth-brand-panel">
+            <div class="brand-mark">N</div>
+            <span class="eyebrow text-white-50">GESTIÓN NUTRICIONAL</span>
+            <h1>Decisiones clínicas con una visión completa.</h1>
+            <p>Organiza pacientes, evaluaciones, planes y seguimiento desde un espacio seguro y profesional.</p>
+            <div class="auth-metric-row">
+                <div><strong>12</strong><span>Módulos integrados</span></div>
+                <div><strong>360°</strong><span>Vista del paciente</span></div>
+            </div>
+        </section>
+        <section class="auth-form-panel">
+            <div class="auth-form-wrap">
+                <div class="mobile-brand mb-4"><span class="brand-mark small">N</span><strong>NUTRIMEJOR</strong></div>
+                <span class="eyebrow">BIENVENIDO</span>
+                <h2>@(Model.Register ? "Crea tu espacio de trabajo" : "Inicia sesión")</h2>
+                <p class="text-secondary mb-4">@(Model.Register ? "Configura tu organización en pocos segundos." : "Accede a tu panel profesional.")</p>
+                @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+                {
+                    <div class="alert alert-danger border-0">@Model.ErrorMessage</div>
+                }
+                <form method="post" asp-page-handler="@(Model.Register ? "Register" : "Login")" class="vstack gap-3">
+                    <input type="hidden" asp-for="ReturnUrl" />
+                    @if (Model.Register)
+                    {
+                        <div><label asp-for="Name" class="form-label">Nombre completo</label><input asp-for="Name" class="form-control form-control-lg" placeholder="Tu nombre" /></div>
+                    }
+                    <div><label asp-for="Email" class="form-label">Correo electrónico</label><input asp-for="Email" class="form-control form-control-lg" placeholder="nombre@consulta.com" autocomplete="email" /></div>
+                    <div><label asp-for="Password" class="form-label">Contraseña</label><input asp-for="Password" type="password" class="form-control form-control-lg" placeholder="Mínimo 8 caracteres" autocomplete="current-password" /></div>
+                    <button class="btn btn-success btn-lg w-100 mt-2">@(Model.Register ? "Crear cuenta" : "Ingresar al sistema")</button>
+                </form>
+                <div class="text-center mt-4 text-secondary">
+                    @(Model.Register ? "¿Ya tienes una cuenta?" : "¿Primera vez en NUTRIMEJOR?")
+                    <a asp-page="/Account/Login" asp-route-register="@(!Model.Register)" class="fw-semibold">@(Model.Register ? "Inicia sesión" : "Crear cuenta")</a>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

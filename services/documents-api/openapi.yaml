@@ -1,0 +1,104 @@
+openapi: 3.1.0
+info:
+  title: Nutrimejor Documents API
+  version: 1.1.0
+  description: Plantillas y generación asíncrona de PDF con hash y enlaces temporales.
+paths:
+  /health/live:
+    get:
+      responses:
+        '200': { description: Proceso activo }
+  /health/ready:
+    get:
+      responses:
+        '200': { description: Servicio listo }
+  /v1/documents:
+    get:
+      parameters:
+        - in: query
+          name: patientId
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Listado }
+    post:
+      responses:
+        '201': { description: Creado }
+  /v1/documents/{id}:
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Encontrado }
+        '404': { description: No encontrado }
+    put:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Actualizado }
+  /v1/documents/{id}/status:
+    post:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Estado actualizado }
+  /v1/templates:
+    get:
+      responses:
+        '200': { description: Plantillas activas de la organización }
+    post:
+      responses:
+        '201': { description: Plantilla versionada creada }
+  /v1/generated-documents:
+    get:
+      parameters:
+        - in: query
+          name: patientId
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Solicitudes de generación }
+    post:
+      responses:
+        '202': { description: Generación encolada }
+  /v1/generated-documents/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      responses:
+        '200': { description: 'Estado, tamaño y SHA-256 del documento' }
+        '404': { description: No encontrado en la organización }
+  /v1/generated-documents/{id}/access-url:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      responses:
+        '200': { description: URL temporal con vencimiento máximo de 60 minutos }
+        '409': { description: Documento aún no disponible }
+  /v1/download/{token}:
+    parameters:
+      - in: path
+        name: token
+        required: true
+        schema: { type: string }
+    get:
+      security: []
+      responses:
+        '200':
+          description: Contenido PDF autorizado por token temporal
+          content:
+            application/pdf: {}
+        '404': { description: Token inválido o vencido }

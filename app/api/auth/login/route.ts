@@ -1,1 +1,23 @@
-import{NextResponse}from"next/server";import bcrypt from"bcryptjs";import{db,sql}from"@/lib/server/db";import{credentials}from"@/lib/server/validation";import{cookieOptions,sign,apiError}from"@/lib/server/auth";export async function POST(req:Request){try{const x=credentials.parse(await req.json()),pool=await db(),r=await pool.request().input("email",sql.NVarChar,x.email).query("SELECT TOP 1 IdUsuario id,Nombre name,Email email,Rol role,PasswordHash hash,Activo active FROM Usuarios WHERE Email=@email"),u=r.recordset[0];if(!u||!u.active||!await bcrypt.compare(x.password,u.hash))return NextResponse.json({error:"Correo o contraseña incorrectos."},{status:401});delete u.hash;const res=NextResponse.json({user:u});res.cookies.set("nm_session",await sign(u),cookieOptions);return res}catch(e){return apiError(e)}}
+import { NextResponse } from "next/server";
+import { callService, refreshCookie, sessionCookie } from "@/lib/server/service-client";
+
+export async function POST(request: Request) {
+  try {
+    const response = await callService(
+      "identity",
+      "/v1/sessions",
+      { method: "POST", body: await request.text() },
+      request,
+    );
+    const data = await response.json();
+    if (!response.ok) return NextResponse.json(data, { status: response.status });
+
+    const result = NextResponse.json({ user: data.user });
+    result.cookies.set("nm_session", data.accessToken, sessionCookie);
+    result.cookies.set("nm_refresh", data.refreshToken, refreshCookie);
+    return result;
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: "El servicio de identidad no está disponible." }, { status: 503 });
+  }
+}

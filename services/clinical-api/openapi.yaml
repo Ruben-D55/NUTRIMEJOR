@@ -1,0 +1,340 @@
+openapi: 3.1.0
+info:
+  title: NUTRIMEJOR Clinical API
+  version: 1.1.0
+  description: Historia clínica, consultas inmutables, diagnósticos, objetivos y seguimientos.
+security:
+  - serviceKey: []
+    bearerAuth: []
+paths:
+  /health/live:
+    get:
+      security: []
+      responses:
+        '200': { description: Proceso activo }
+  /health/ready:
+    get:
+      security: []
+      responses:
+        '200': { description: Servicio listo }
+  /v1/consultations:
+    get:
+      parameters:
+        - in: query
+          name: patientId
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Consultas de la organización
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Consultation' } }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConsultationInput' }
+      responses:
+        '201':
+          description: Borrador creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Consultation' }
+  /v1/consultations/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ConsultationId'
+    get:
+      responses:
+        '200':
+          description: Consulta
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Consultation' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConsultationUpdate' }
+      responses:
+        '200': { description: Borrador actualizado }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/consultations/{id}/publish:
+    parameters:
+      - $ref: '#/components/parameters/ConsultationId'
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedVersion]
+              properties:
+                expectedVersion: { type: integer, minimum: 1 }
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        '200': { description: Consulta publicada y versión inmutable creada }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/consultations/{id}/corrections:
+    parameters:
+      - $ref: '#/components/parameters/ConsultationId'
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ConsultationUpdate'
+                - type: object
+                  required: [reason]
+                  properties:
+                    reason: { type: string, minLength: 5, maxLength: 500 }
+      responses:
+        '201': { description: Nueva versión correctiva publicada }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/consultations/{id}/versions:
+    parameters:
+      - $ref: '#/components/parameters/ConsultationId'
+    get:
+      responses:
+        '200':
+          description: Versiones publicadas, ordenadas ascendentemente
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/ConsultationVersion' } }
+  /v1/consultations/{id}/diagnoses:
+    parameters:
+      - $ref: '#/components/parameters/ConsultationId'
+    get:
+      responses:
+        '200': { description: Diagnósticos de la consulta }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DiagnosisInput' }
+      responses:
+        '201': { description: Diagnóstico creado }
+  /v1/consultations/{id}/goals:
+    parameters:
+      - $ref: '#/components/parameters/ConsultationId'
+    get:
+      responses:
+        '200': { description: Objetivos de la consulta }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GoalInput' }
+      responses:
+        '201': { description: Objetivo creado }
+  /v1/consultations/{id}/follow-ups:
+    parameters:
+      - $ref: '#/components/parameters/ConsultationId'
+    get:
+      responses:
+        '200': { description: Seguimientos de la consulta }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FollowUpInput' }
+      responses:
+        '201': { description: Seguimiento creado }
+  /v1/patients/{patientId}/clinical-record:
+    parameters:
+      - $ref: '#/components/parameters/PatientId'
+    get:
+      responses:
+        '200': { description: Cabecera de historia clínica }
+  /v1/patients/{patientId}/timeline:
+    parameters:
+      - $ref: '#/components/parameters/PatientId'
+    get:
+      responses:
+        '200': { description: Línea de tiempo clínica reconstruida }
+  /v1/patients/{patientId}/clinical-entries:
+    parameters:
+      - $ref: '#/components/parameters/PatientId'
+    get:
+      parameters:
+        - in: query
+          name: category
+          schema: { $ref: '#/components/schemas/ClinicalEntryCategory' }
+      responses:
+        '200': { description: 'Antecedentes, problemas, síntomas y tratamientos' }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClinicalEntryInput' }
+      responses:
+        '201': { description: Entrada clínica creada }
+  /v1/clinical-entries/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ClinicalEntryInput'
+                - type: object
+                  required: [expectedVersion]
+                  properties:
+                    expectedVersion: { type: integer, minimum: 1 }
+      responses:
+        '200': { description: Entrada actualizada }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      responses:
+        '204': { description: Entrada desactivada }
+  /v1/migrations/patient-history:
+    post:
+      description: Importación idempotente del historial heredado de Patients.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LegacyHistoryInput' }
+      responses:
+        '200': { description: Resultado de importación }
+components:
+  securitySchemes:
+    serviceKey:
+      type: apiKey
+      in: header
+      name: x-service-key
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ConsultationId:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, format: uuid }
+    PatientId:
+      in: path
+      name: patientId
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    NotFound:
+      description: Recurso no encontrado en la organización
+    Conflict:
+      description: Versión o estado incompatible
+  schemas:
+    ConsultationType:
+      type: string
+      enum: [initial, follow_up, revisit, sports_evaluation, anthropometric_control, nutritional_control, closure]
+    ConsultationInput:
+      type: object
+      required: [patientId, title]
+      additionalProperties: false
+      properties:
+        patientId: { type: string, format: uuid }
+        title: { type: string, minLength: 2, maxLength: 200 }
+        consultationType: { $ref: '#/components/schemas/ConsultationType' }
+        occurredAt: { type: string, format: date-time }
+        data: { type: object, additionalProperties: true }
+    ConsultationUpdate:
+      allOf:
+        - $ref: '#/components/schemas/ConsultationInput'
+        - type: object
+          required: [expectedVersion]
+          properties:
+            expectedVersion: { type: integer, minimum: 1 }
+    Consultation:
+      allOf:
+        - $ref: '#/components/schemas/ConsultationInput'
+        - type: object
+          required: [id, status, version, createdAt, updatedAt]
+          properties:
+            id: { type: string, format: uuid }
+            status: { type: string, enum: [draft, published] }
+            version: { type: integer, minimum: 1 }
+            publishedAt: { type: [string, 'null'], format: date-time }
+            correctionReason: { type: [string, 'null'] }
+            correctedFromVersion: { type: [integer, 'null'] }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    ConsultationVersion:
+      type: object
+      required: [id, version, snapshot, reason, changedBy, isCorrection, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        version: { type: integer }
+        snapshot: { type: object, additionalProperties: true }
+        reason: { type: string }
+        changedBy: { type: integer }
+        isCorrection: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    ClinicalEntryCategory:
+      type: string
+      enum: [current_problem, personal_history, family_history, symptom, surgery, medication, supplement, gynecological_history, clinical_note]
+    ClinicalEntryInput:
+      type: object
+      required: [category, title]
+      additionalProperties: false
+      properties:
+        consultationId: { type: [string, 'null'], format: uuid }
+        category: { $ref: '#/components/schemas/ClinicalEntryCategory' }
+        title: { type: string, minLength: 2, maxLength: 240 }
+        details: { type: object, additionalProperties: true }
+        status: { type: string, enum: [active, resolved, inactive] }
+        startDate: { type: [string, 'null'], format: date-time }
+        endDate: { type: [string, 'null'], format: date-time }
+        source: { type: [string, 'null'], maxLength: 120 }
+    DiagnosisInput:
+      type: object
+      required: [statement]
+      properties:
+        code: { type: [string, 'null'], maxLength: 60 }
+        statement: { type: string, minLength: 3, maxLength: 500 }
+        etiology: { type: [string, 'null'], maxLength: 1000 }
+        signs: { type: [string, 'null'], maxLength: 1000 }
+        status: { type: string, enum: [active, resolved] }
+    GoalInput:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 2, maxLength: 240 }
+        description: { type: [string, 'null'], maxLength: 1000 }
+        targetValue: { type: [number, 'null'] }
+        unit: { type: [string, 'null'], maxLength: 40 }
+        dueDate: { type: [string, 'null'], format: date-time }
+        status: { type: string, enum: [active, achieved, cancelled] }
+    FollowUpInput:
+      type: object
+      required: [summary]
+      properties:
+        summary: { type: string, minLength: 3, maxLength: 1000 }
+        adherence: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        difficulties: { type: [string, 'null'], maxLength: 1000 }
+        nextSteps: { type: [string, 'null'], maxLength: 1000 }
+        scheduledAt: { type: [string, 'null'], format: date-time }
+    LegacyHistoryInput:
+      type: object
+      required: [patientId, legacyHistoryId]
+      properties:
+        patientId: { type: string, format: uuid }
+        legacyHistoryId: { oneOf: [{ type: string }, { type: integer }] }
+        type: { type: [string, 'null'] }
+        notes: { type: [string, 'null'] }
+        recordedAt: { type: [string, 'null'], format: date-time }
+        source: { type: string, default: patients-db }

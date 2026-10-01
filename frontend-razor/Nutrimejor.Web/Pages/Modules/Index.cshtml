@@ -1,0 +1,57 @@
+@page
+@model Nutrimejor.Web.Pages.Modules.IndexModel
+@{ ViewData["Title"] = Model.Module.Name; ViewData["Active"] = Model.Module.Key; }
+
+<div class="page-heading d-flex flex-column flex-lg-row align-items-lg-end justify-content-between gap-3">
+    <div><span class="eyebrow">MÓDULO</span><h1><span class="heading-icon @Model.Module.Icon"></span>@Model.Module.Name</h1><p>@Model.Module.Description</p></div>
+    @if (Model.Module.CreatePath is not null) { <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal"><span class="plus">+</span> Nuevo registro</button> }
+</div>
+
+@if (TempData["Success"] is string success) { <div class="alert alert-success border-0 shadow-sm">@success</div> }
+@if (TempData["Error"] is string error) { <div class="alert alert-danger border-0 shadow-sm">@error</div> }
+@if (Model.Module.Immutable) { <div class="info-banner"><span>i</span><div><strong>Registro clínico protegido</strong><small>Este módulo conserva versiones inmutables para mantener la trazabilidad profesional.</small></div></div> }
+
+<section class="panel table-panel">
+    <div class="table-toolbar">
+        <div class="search-box"><span>⌕</span><input id="tableSearch" type="search" placeholder="Buscar en @Model.Module.ShortName.ToLowerInvariant()…" /></div>
+        <div class="toolbar-meta"><span><strong id="visibleCount">@Model.Rows.Count</strong> registros</span><button class="btn btn-sm btn-light border" onclick="location.reload()">Actualizar</button></div>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.LoadError))
+    { <div class="empty-state"><span class="empty-icon">!</span><h3>No fue posible cargar los datos</h3><p>@Model.LoadError</p></div> }
+    else if (Model.Rows.Count == 0)
+    { <div class="empty-state"><span class="empty-icon @Model.Module.Icon"></span><h3>Aún no hay registros</h3><p>Crea el primer registro para comenzar a trabajar en este módulo.</p></div> }
+    else
+    {
+        <div class="table-responsive"><table class="table executive-table align-middle mb-0" id="recordsTable">
+            <thead><tr>@foreach (var column in Model.Columns) { <th>@column</th> }<th class="text-end">Acciones</th></tr></thead>
+            <tbody>@foreach (var row in Model.Rows) { <tr>@foreach (var column in Model.Columns) { var value = row.Values.GetValueOrDefault(column, "—"); <td title="@value">@(value.Length > 42 ? value[..42] + "…" : value)</td> }<td class="text-end text-nowrap">
+                <button class="action-btn view-record" type="button" title="Ver detalle" data-id="@row.Id" data-json="@row.RawJson">Ver</button>
+                @if (Model.Module.UpdatePath is not null) { <button class="action-btn edit-record" type="button" data-id="@row.Id" data-json="@row.RawJson">Editar</button> }
+                @if (Model.Module.DeletePath is not null) { <button class="action-btn danger delete-record" type="button" data-id="@row.Id">Archivar</button> }
+            </td></tr> }</tbody>
+        </table></div>
+    }
+</section>
+
+@if (Model.Module.CreatePath is not null)
+{
+<div class="modal fade" id="createModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content">
+    <form method="post" asp-page-handler="Create"><input type="hidden" asp-for="Key" /><div class="modal-header"><div><span class="eyebrow">NUEVO REGISTRO</span><h2 class="modal-title">@Model.Module.ShortName</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><div id="createFields" class="schema-form"></div><textarea asp-for="Payload" id="createPayload" class="d-none"></textarea><details class="advanced-json"><summary>Edición avanzada JSON</summary><textarea id="createJsonEditor" class="form-control code-editor mt-2" rows="10"></textarea></details><div class="form-text mt-2">La API validará las reglas clínicas antes de guardar.</div></div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-success">Guardar registro</button></div></form>
+</div></div></div>
+}
+
+<div class="modal fade" id="detailModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content"><div class="modal-header"><div><span class="eyebrow">DETALLE</span><h2 class="modal-title">Información del registro</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><pre id="detailJson" class="json-preview"></pre></div></div></div></div>
+
+@if (Model.Module.UpdatePath is not null)
+{
+<div class="modal fade" id="editModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content"><form method="post" asp-page-handler="Update"><input type="hidden" asp-for="Key" /><input type="hidden" asp-for="RecordId" id="editRecordId" /><div class="modal-header"><div><span class="eyebrow">EDITAR</span><h2 class="modal-title">Actualizar registro</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="editFields" class="schema-form"></div><textarea asp-for="Payload" id="editPayload" class="d-none"></textarea><details class="advanced-json"><summary>Edición avanzada JSON</summary><textarea id="editJsonEditor" class="form-control code-editor mt-2" rows="10"></textarea></details></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-success">Guardar cambios</button></div></form></div></div></div>
+}
+
+@if (Model.Module.DeletePath is not null)
+{
+<div class="modal fade" id="deleteModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><form method="post" asp-page-handler="Delete"><input type="hidden" asp-for="Key" /><input type="hidden" asp-for="RecordId" id="deleteRecordId" /><div class="modal-body p-4 text-center"><div class="danger-mark">!</div><h2>¿Archivar este registro?</h2><p class="text-secondary">Dejará de aparecer como activo, pero se conservará su trazabilidad.</p><div class="d-flex gap-2 justify-content-center mt-4"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-danger">Sí, archivar</button></div></div></form></div></div></div>
+}
+
+@section Scripts { <script src="~/js/modules.js" asp-append-version="true"></script> }

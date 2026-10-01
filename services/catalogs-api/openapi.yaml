@@ -1,0 +1,258 @@
+openapi: 3.1.0
+info:
+  title: NUTRIMEJOR Catalogs API
+  version: 1.1.0
+  description: Alimentos, nutrientes, porciones, recetas y biblioteca profesional.
+security:
+  - bearerAuth: []
+    serviceKey: []
+paths:
+  /health/live:
+    get:
+      security: []
+      responses: { '200': { description: Proceso activo } }
+  /health/ready:
+    get:
+      security: []
+      responses: { '200': { description: Servicio listo } }
+  /v1/nutrients:
+    get:
+      responses: { '200': { description: Nutrientes y unidades versionadas } }
+  /v1/foods:
+    get:
+      parameters:
+        - { in: query, name: search, schema: { type: string, maxLength: 200 } }
+        - { in: query, name: category, schema: { type: string, maxLength: 120 } }
+        - { in: query, name: scope, schema: { $ref: '#/components/schemas/ReadableScope' } }
+      responses:
+        '200': { description: Alimentos globales y propios visibles }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FoodInput' }
+      responses:
+        '201': { description: Alimento propio creado }
+  /v1/foods/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      responses:
+        '200': { description: Alimento con nutrientes y porciones }
+        '404': { description: No visible en la organización }
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FoodInput' }
+      responses:
+        '200': { description: Alimento propio actualizado y versionado }
+        '404': { description: Alimento global o ajeno no modificable }
+  /v1/foods/{id}/copy:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      responses: { '201': { description: Copia profesional independiente } }
+  /v1/foods/{id}/nutrients:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nutrients, expectedVersion]
+              properties:
+                nutrients:
+                  type: array
+                  items: { $ref: '#/components/schemas/FoodNutrientInput' }
+                expectedVersion: { type: integer, minimum: 1 }
+      responses:
+        '200': { description: Composición reemplazada y versión incrementada }
+  /v1/foods/{id}/portions:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PortionInput' }
+      responses: { '201': { description: Porción creada } }
+  /v1/household-measures:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 120 }
+                abbreviation: { type: [string, 'null'], maxLength: 30 }
+      responses: { '201': { description: Medida casera creada } }
+  /v1/recipes:
+    get:
+      parameters:
+        - { in: query, name: search, schema: { type: string, maxLength: 200 } }
+      responses: { '200': { description: Recetas visibles } }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecipeInput' }
+      responses:
+        '201': { description: Receta calculada desde ingredientes versionados }
+  /v1/recipes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      responses: { '200': { description: 'Receta, ingredientes, etiquetas y nutrientes' } }
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecipeInput' }
+      responses: { '200': { description: Receta recalculada } }
+  /v1/recipes/{id}/copy:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      responses: { '201': { description: Copia profesional recalculada } }
+  /v1/recommendations:
+    get:
+      responses: { '200': { description: Recomendaciones de la organización } }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecommendationInput' }
+      responses: { '201': { description: Recomendación creada } }
+  /v1/education-resources:
+    get:
+      responses: { '200': { description: Material educativo de la organización } }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EducationInput' }
+      responses: { '201': { description: Material registrado } }
+  /v1/migrations/legacy-catalogs:
+    post:
+      responses: { '200': { description: Migración idempotente del catálogo legado } }
+  /v1/catalogs/{type}:
+    get:
+      deprecated: true
+      parameters:
+        - { in: path, name: type, required: true, schema: { type: string, enum: [recetas, alimentos, dietas] } }
+      responses: { '200': { description: Compatibilidad temporal } }
+    post:
+      deprecated: true
+      parameters:
+        - { in: path, name: type, required: true, schema: { type: string, enum: [recetas, alimentos, dietas] } }
+      responses: { '201': { description: Compatibilidad temporal } }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    serviceKey: { type: apiKey, in: header, name: x-service-key }
+  parameters:
+    Id:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    ReadableScope:
+      type: string
+      enum: [GLOBAL, ORGANIZATION, PROFESSIONAL]
+    WritableScope:
+      type: string
+      enum: [ORGANIZATION, PROFESSIONAL]
+    FoodNutrientInput:
+      type: object
+      required: [nutrientCode, amountPer100g]
+      properties:
+        nutrientCode: { type: string, minLength: 1, maxLength: 80 }
+        amountPer100g: { type: number, minimum: 0 }
+        sourceReference: { type: [string, 'null'], maxLength: 500 }
+    PortionInput:
+      type: object
+      required: [name, grams]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        grams: { type: number, exclusiveMinimum: 0 }
+        householdMeasureId: { type: [string, 'null'], format: uuid }
+    FoodInput:
+      type: object
+      required: [name, category]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 2, maxLength: 200 }
+        category: { type: string, minLength: 2, maxLength: 120 }
+        description: { type: [string, 'null'], maxLength: 1000 }
+        brand: { type: [string, 'null'], maxLength: 160 }
+        scope: { $ref: '#/components/schemas/WritableScope' }
+        sourceName: { type: [string, 'null'], maxLength: 240 }
+        sourceReference: { type: [string, 'null'], maxLength: 500 }
+        licenseName: { type: [string, 'null'], maxLength: 240 }
+        nutrients:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/FoodNutrientInput' }
+        portions:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/PortionInput' }
+    RecipeIngredientInput:
+      type: object
+      required: [foodId, amountGrams]
+      properties:
+        foodId: { type: string, format: uuid }
+        amountGrams: { type: number, exclusiveMinimum: 0 }
+        notes: { type: [string, 'null'], maxLength: 300 }
+    RecipeInput:
+      type: object
+      required: [name, instructions, category, servings, ingredients]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 2, maxLength: 200 }
+        description: { type: [string, 'null'], maxLength: 1000 }
+        photoPath: { type: [string, 'null'], maxLength: 500 }
+        instructions: { type: string, minLength: 3, maxLength: 20000 }
+        preparationMinutes: { type: [integer, 'null'], minimum: 1 }
+        category: { type: string, minLength: 2, maxLength: 120 }
+        servings: { type: number, exclusiveMinimum: 0 }
+        yieldGrams: { type: [number, 'null'], exclusiveMinimum: 0 }
+        scope: { $ref: '#/components/schemas/WritableScope' }
+        tags: { type: array, maxItems: 50, items: { type: string, maxLength: 100 } }
+        ingredients:
+          type: array
+          minItems: 1
+          maxItems: 300
+          items: { $ref: '#/components/schemas/RecipeIngredientInput' }
+    RecommendationInput:
+      type: object
+      required: [category, title, content]
+      properties:
+        category: { type: string, minLength: 2, maxLength: 120 }
+        title: { type: string, minLength: 2, maxLength: 200 }
+        content: { type: string, minLength: 3, maxLength: 20000 }
+        tags: { type: array, maxItems: 50, items: { type: string, maxLength: 100 } }
+    EducationInput:
+      type: object
+      required: [resourceType, title, storagePath]
+      properties:
+        resourceType: { type: string, enum: [pdf, image, infographic, guide, other] }
+        title: { type: string, minLength: 2, maxLength: 200 }
+        description: { type: [string, 'null'], maxLength: 1000 }
+        storagePath: { type: string, minLength: 1, maxLength: 500 }
+        tags: { type: array, maxItems: 50, items: { type: string, maxLength: 100 } }

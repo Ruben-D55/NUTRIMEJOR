@@ -1,0 +1,30 @@
+import { DomainError, unavailable } from "../../domain/errors.js";
+
+export class CatalogsClient {
+  constructor(config) {
+    this.baseUrl = config.catalogsUrl;
+    this.serviceKey = config.serviceKey;
+    this.timeoutMs = config.catalogsTimeoutMs;
+  }
+
+  async getFood(id, authorization, requestId) {
+    let response;
+    try {
+      response = await fetch(`${this.baseUrl}/v1/foods/${encodeURIComponent(id)}`, {
+        headers: {
+          authorization,
+          "x-service-key": this.serviceKey,
+          "x-request-id": requestId,
+        },
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch {
+      throw unavailable("El catálogo de alimentos no está disponible.");
+    }
+    if (response.status === 404) {
+      throw new DomainError("El alimento no existe o no está disponible para la organización.", 400, "FOOD_NOT_AVAILABLE");
+    }
+    if (!response.ok) throw unavailable("No se pudo consultar el alimento.");
+    return response.json();
+  }
+}

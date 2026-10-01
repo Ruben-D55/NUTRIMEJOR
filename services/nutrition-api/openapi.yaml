@@ -1,0 +1,169 @@
+openapi: 3.1.0
+info:
+  title: NUTRIMEJOR Nutrition API
+  version: 1.1.0
+  description: Estilo de vida, evaluación dietética, recordatorio de 24 horas y frecuencia de consumo.
+security:
+  - serviceKey: []
+    bearerAuth: []
+paths:
+  /health/live:
+    get:
+      security: []
+      responses: { '200': { description: Proceso activo } }
+  /health/ready:
+    get:
+      security: []
+      responses: { '200': { description: Servicio listo } }
+  /v1/nutrition-assessments:
+    get:
+      parameters:
+        - in: query
+          name: patientId
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Evaluaciones de la organización }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AssessmentInput' }
+      responses:
+        '201': { description: Evaluación en borrador con snapshot nutricional }
+        '400': { description: Datos inválidos o alimento no disponible }
+        '503': { description: Catálogo no disponible }
+  /v1/nutrition-assessments/{id}:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200': { description: Evaluación completa y análisis histórico }
+        '404': { description: No encontrada en la organización }
+  /v1/nutrition-assessments/{id}/complete:
+    post:
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedVersion]
+              properties:
+                expectedVersion: { type: integer, minimum: 1 }
+      responses:
+        '200': { description: Evaluación completada y evento publicado }
+        '409': { description: Versión o estado incompatible }
+components:
+  securitySchemes:
+    serviceKey: { type: apiKey, in: header, name: x-service-key }
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Id:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    Lifestyle:
+      type: object
+      properties:
+        dailyActivity: { type: [string, 'null'], maxLength: 500 }
+        workSchedule: { type: [string, 'null'], maxLength: 500 }
+        sleepHours: { type: [number, 'null'], minimum: 0, maximum: 24 }
+        physicalActivity: { type: [string, 'null'], maxLength: 500 }
+        exerciseType: { type: [string, 'null'], maxLength: 200 }
+        exerciseFrequencyPerWeek: { type: [number, 'null'], minimum: 0 }
+        exerciseDurationMinutes: { type: [integer, 'null'], minimum: 0 }
+        exerciseIntensity: { type: [string, 'null'], enum: [low, moderate, high, null] }
+        alcohol: { type: [string, 'null'], maxLength: 300 }
+        tobacco: { type: [string, 'null'], maxLength: 300 }
+        coffee: { type: [string, 'null'], maxLength: 300 }
+        otherVariables: { type: object, additionalProperties: true }
+    Dietary:
+      type: object
+      properties:
+        mealsPerDay: { type: [integer, 'null'], minimum: 0, maximum: 30 }
+        schedules: { type: array, items: { type: string } }
+        preparedBy: { type: [string, 'null'] }
+        appetite: { type: [string, 'null'] }
+        hunger: { type: [string, 'null'] }
+        satiety: { type: [string, 'null'] }
+        preferences: { type: array, items: { type: string } }
+        dislikedFoods: { type: array, items: { type: string } }
+        discomfortFoods: { type: array, items: { type: string } }
+        allergies: { type: array, items: { type: string } }
+        intolerances: { type: array, items: { type: string } }
+        supplements: { type: array, items: { type: string } }
+        emotionalEating: { type: [string, 'null'] }
+        stressEating: { type: [string, 'null'] }
+        addedSalt: { type: [string, 'null'] }
+        fatType: { type: [string, 'null'] }
+        previousDiets: { type: array, items: { type: string } }
+        weightLossMedications: { type: array, items: { type: string } }
+        waterLiters: { type: [number, 'null'], minimum: 0 }
+        beverages: { type: array, items: { type: string } }
+        weekendChanges: { type: [string, 'null'] }
+    RecallItem:
+      type: object
+      required: [foodId, amountGrams]
+      properties:
+        foodId: { type: string, format: uuid }
+        amountGrams: { type: number, exclusiveMinimum: 0 }
+        unit: { type: string, default: g }
+        householdMeasure: { type: [string, 'null'] }
+        preparation: { type: [string, 'null'] }
+        notes: { type: [string, 'null'] }
+    Recall24h:
+      type: object
+      required: [date, meals]
+      properties:
+        date: { type: string, format: date }
+        notes: { type: [string, 'null'] }
+        meals:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [mealType, items]
+            properties:
+              time: { type: [string, 'null'], pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' }
+              mealType: { type: string, minLength: 1, maxLength: 80 }
+              notes: { type: [string, 'null'] }
+              items: { type: array, minItems: 1, items: { $ref: '#/components/schemas/RecallItem' } }
+    FoodFrequency:
+      type: object
+      required: [entries]
+      properties:
+        periodStart: { type: [string, 'null'], format: date }
+        periodEnd: { type: [string, 'null'], format: date }
+        notes: { type: [string, 'null'] }
+        entries:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [foodGroup, frequencyValue, frequencyUnit]
+            properties:
+              foodGroup: { type: string, minLength: 1, maxLength: 120 }
+              frequencyValue: { type: number, minimum: 0 }
+              frequencyUnit: { type: string, enum: [day, week, month, never] }
+              portionDescription: { type: [string, 'null'] }
+              notes: { type: [string, 'null'] }
+    AssessmentInput:
+      type: object
+      required: [patientId, title]
+      additionalProperties: false
+      properties:
+        patientId: { type: string, format: uuid }
+        title: { type: string, minLength: 2, maxLength: 200 }
+        assessmentType:
+          type: string
+          enum: [comprehensive, lifestyle, dietary, recall_24h, food_frequency]
+        assessedAt: { type: string, format: date-time }
+        lifestyle: { anyOf: [{ $ref: '#/components/schemas/Lifestyle' }, { type: 'null' }] }
+        dietary: { anyOf: [{ $ref: '#/components/schemas/Dietary' }, { type: 'null' }] }
+        recall24h: { anyOf: [{ $ref: '#/components/schemas/Recall24h' }, { type: 'null' }] }
+        foodFrequency: { anyOf: [{ $ref: '#/components/schemas/FoodFrequency' }, { type: 'null' }] }

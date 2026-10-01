@@ -1,0 +1,289 @@
+openapi: 3.1.0
+info:
+  title: Nutrimejor Planning API
+  version: 1.1.0
+  description: Cálculo reproducible de requerimientos y planes alimentarios versionados.
+servers:
+  - url: http://localhost:4008
+security:
+  - bearerAuth: []
+    serviceKey: []
+paths:
+  /health/live:
+    get:
+      security: []
+      responses:
+        '200': { description: Proceso activo }
+  /health/ready:
+    get:
+      security: []
+      responses:
+        '200': { description: Servicio listo }
+  /v1/meal-plans:
+    get:
+      summary: Lista los planes de la organización
+      parameters:
+        - in: query
+          name: patientId
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Listado
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/MealPlan' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /v1/meal-plans/generate:
+    post:
+      summary: Genera un borrador Pro con restricciones duras y cuota
+      responses:
+        '201': { description: Borrador generado para revisión profesional }
+        '403': { description: Función no incluida en la membresía }
+        '409': { description: Cuota Pro agotada }
+        '422': { description: No existen candidatos seguros }
+  /v1/sport/meal-plans/generate:
+    post:
+      summary: Genera un borrador Sport con tiempos pre, intra y post entrenamiento
+      responses:
+        '201': { description: Borrador Sport generado }
+        '403': { description: Requiere membresía Sport }
+  /v1/substitutions/evaluate:
+    post:
+      summary: Ordena sustituciones seguras por similitud nutricional
+      responses:
+        '200': { description: Alternativas y fórmula de similitud }
+    post:
+      summary: Calcula y crea un plan con snapshots del catálogo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateMealPlan' }
+      responses:
+        '201':
+          description: Creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MealPlan' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422':
+          description: Un alimento o ingrediente infringe una restricción dura
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /v1/meal-plans/{id}:
+    get:
+      summary: Obtiene el plan completo y sus cálculos
+      parameters:
+        - $ref: '#/components/parameters/PlanId'
+      responses:
+        '200':
+          description: Encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MealPlan' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/meal-plans/{id}/publish:
+    post:
+      summary: Publica una versión inmutable
+      parameters:
+        - $ref: '#/components/parameters/PlanId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedVersion]
+              properties:
+                expectedVersion: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: Versión publicada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlanVersion' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Conflicto de versión o plan ya publicado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /v1/meal-plans/{id}/versions:
+    get:
+      summary: Lista versiones publicadas
+      parameters:
+        - $ref: '#/components/parameters/PlanId'
+      responses:
+        '200':
+          description: Versiones inmutables
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PlanVersion' }
+  /v1/meal-plans/{id}/shopping-list:
+    parameters:
+      - $ref: '#/components/parameters/PlanId'
+    post:
+      summary: Consolida ingredientes y cantidades del plan
+      responses:
+        '201': { description: Snapshot de lista de compras }
+  /v1/meal-plans/{id}/reviews:
+    parameters:
+      - $ref: '#/components/parameters/PlanId'
+    post:
+      summary: Registra aprobación o solicitud de cambios profesional
+      responses:
+        '201': { description: Revisión registrada }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    serviceKey: { type: apiKey, in: header, name: x-service-key }
+  parameters:
+    PlanId:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    ValidationError:
+      description: Entrada inválida
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Rol sin acceso
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: No encontrado en la organización
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Error:
+      type: object
+      required: [error, code]
+      properties:
+        error: { type: string }
+        code: { type: string }
+    Requirement:
+      type: object
+      required: [weightKg, heightCm, ageYears, sex, activityFactor, macroPercentages]
+      properties:
+        weightKg: { type: number, exclusiveMinimum: 0, maximum: 1000 }
+        heightCm: { type: number, exclusiveMinimum: 0, maximum: 300 }
+        ageYears: { type: integer, minimum: 1, maximum: 130 }
+        sex: { type: string, enum: [male, female] }
+        formulaCode: { type: string, enum: [MIFFLIN_ST_JEOR], default: MIFFLIN_ST_JEOR }
+        activityFactor: { type: number, minimum: 1, maximum: 3 }
+        thermicEffectPercent: { type: number, minimum: 0, maximum: 30, default: 10 }
+        macroPercentages:
+          type: object
+          description: Carbohidrato, proteína y grasa deben sumar 100.
+          required: [carbohydrate, protein, fat]
+          properties:
+            carbohydrate: { type: number, minimum: 0, maximum: 100 }
+            protein: { type: number, minimum: 0, maximum: 100 }
+            fat: { type: number, minimum: 0, maximum: 100 }
+        nutrientTargets:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            required: [nutrientCode, targetAmount, unit]
+            properties:
+              nutrientCode: { type: string, maxLength: 80 }
+              targetAmount: { type: number, exclusiveMinimum: 0 }
+              unit: { type: string, maxLength: 30 }
+    Restriction:
+      type: object
+      required: [type, value]
+      properties:
+        type: { type: string, enum: [allergy, intolerance, excluded, contraindication] }
+        value: { type: string, maxLength: 200 }
+        foodId: { type: [string, 'null'], format: uuid }
+    MenuItem:
+      type: object
+      required: [catalogType, catalogId, amount, amountUnit]
+      properties:
+        catalogType: { type: string, enum: [food, recipe] }
+        catalogId: { type: string, format: uuid }
+        amount: { type: number, exclusiveMinimum: 0, maximum: 100000 }
+        amountUnit: { type: string, enum: [g, serving] }
+        notes: { type: [string, 'null'], maxLength: 500 }
+    MenuDay:
+      type: object
+      required: [label, meals]
+      properties:
+        date: { type: [string, 'null'], format: date }
+        label: { type: string, maxLength: 120 }
+        meals:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items:
+            type: object
+            required: [mealType, items]
+            properties:
+              mealType: { type: string, maxLength: 80 }
+              time: { type: [string, 'null'], pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' }
+              notes: { type: [string, 'null'], maxLength: 500 }
+              items:
+                type: array
+                minItems: 1
+                maxItems: 100
+                items: { $ref: '#/components/schemas/MenuItem' }
+    CreateMealPlan:
+      type: object
+      required: [patientId, title, requirement, mealDistribution, days]
+      properties:
+        patientId: { type: string, format: uuid }
+        title: { type: string, minLength: 2, maxLength: 200 }
+        validFrom: { type: [string, 'null'], format: date }
+        validTo: { type: [string, 'null'], format: date }
+        requirement: { $ref: '#/components/schemas/Requirement' }
+        mealDistribution:
+          type: array
+          minItems: 1
+          maxItems: 20
+          description: Los porcentajes deben sumar 100.
+          items:
+            type: object
+            required: [mealType, percentEnergy]
+            properties:
+              mealType: { type: string, maxLength: 80 }
+              percentEnergy: { type: number, exclusiveMinimum: 0, maximum: 100 }
+        restrictions:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/Restriction' }
+        days:
+          type: array
+          minItems: 1
+          maxItems: 90
+          items: { $ref: '#/components/schemas/MenuDay' }
+    MealPlan:
+      type: object
+      required: [id, patientId, title, status, version]
+      additionalProperties: true
+      properties:
+        id: { type: string, format: uuid }
+        patientId: { type: string, format: uuid }
+        title: { type: string }
+        status: { type: string, enum: [DRAFT, PUBLISHED] }
+        version: { type: integer, minimum: 1 }
+    PlanVersion:
+      type: object
+      required: [id, mealPlanId, version, snapshot, publishedAt]
+      properties:
+        id: { type: string, format: uuid }
+        mealPlanId: { type: string, format: uuid }
+        version: { type: integer, minimum: 1 }
+        snapshot: { type: object, additionalProperties: true }
+        publishedAt: { type: string, format: date-time }

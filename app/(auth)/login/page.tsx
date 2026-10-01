@@ -1,1 +1,79 @@
-"use client";import{useState}from"react";import{useRouter}from"next/navigation";import{ArrowRight,Lock,Mail}from"lucide-react";export default function Login(){const router=useRouter(),[busy,setBusy]=useState(false),[register,setRegister]=useState(false),[error,setError]=useState("");async function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setBusy(true);setError("");const f=new FormData(e.currentTarget),r=await fetch(`/api/auth/${register?'register':'login'}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.get('name'),email:f.get('email'),password:f.get('password')})}),d=await r.json();setBusy(false);if(!r.ok)return setError(d.error||'No se pudo ingresar.');router.replace('/dashboard');router.refresh()}return <main className="grid min-h-screen lg:grid-cols-[46%_1fr]"><section className="hidden bg-gradient-to-br from-emerald-950 to-emerald-700 p-14 text-white lg:flex lg:flex-col lg:justify-between"><b className="grid h-14 w-14 place-items-center rounded-2xl bg-lime-200 text-2xl text-emerald-950">N</b><div><p className="text-xs font-bold uppercase tracking-widest text-lime-200">Nutrición con propósito</p><h1 className="mt-4 font-display text-6xl font-extrabold leading-tight">Cuida mejor.<br/>Avanza mejor.</h1><p className="mt-5 max-w-md text-emerald-100">Pacientes, planes y cálculos nutricionales en un solo lugar.</p></div></section><section className="grid place-items-center bg-white p-6 dark:bg-emerald-950"><form className="w-full max-w-md" onSubmit={submit}><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">NUTRIMEJOR</p><h2 className="mt-2 font-display text-4xl font-extrabold">{register?'Crear cuenta':'Iniciar sesión'}</h2><p className="mt-3 text-slate-500">{register?'Regístrate como nutricionista.':'Ingresa tus datos para acceder.'}</p>{register&&<><label className="mt-7 block text-sm font-semibold">Nombre completo</label><input name="name" className="mt-2 h-12 w-full rounded-xl border bg-transparent px-4" required/></>}<label className="mt-5 block text-sm font-semibold">Correo electrónico</label><div className="relative mt-2"><Mail className="absolute left-4 top-3.5 h-5 w-5 text-slate-400"/><input name="email" className="h-12 w-full rounded-xl border bg-transparent pl-12" type="email" required/></div><label className="mt-5 block text-sm font-semibold">Contraseña</label><div className="relative mt-2"><Lock className="absolute left-4 top-3.5 h-5 w-5 text-slate-400"/><input name="password" className="h-12 w-full rounded-xl border bg-transparent pl-12" type="password" minLength={8} required/></div>{error&&<p className="mt-4 text-sm text-red-600">{error}</p>}<button disabled={busy} className="mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 font-semibold text-white">{busy?'Procesando…':<>{register?'Crear cuenta':'Ingresar'} <ArrowRight className="h-4 w-4"/></>}</button><p className="mt-6 text-center text-sm text-slate-500">{register?'¿Ya tienes cuenta?':'¿No tienes cuenta?'} <button type="button" onClick={()=>setRegister(!register)} className="font-bold text-emerald-700">{register?'Iniciar sesión':'Crear cuenta'}</button></p></form></section></main>}
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, Lock, Mail } from "lucide-react";
+
+export default function Login() {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [register, setRegister] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    const form = new FormData(event.currentTarget);
+    const response = await fetch(`/api/auth/${register ? "register" : "login"}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: form.get("name"),
+        email: form.get("email"),
+        password: form.get("password"),
+      }),
+    });
+    const data = await response.json();
+    setBusy(false);
+    if (!response.ok) return setError(data.error || "No se pudo ingresar.");
+    router.replace("/dashboard");
+    router.refresh();
+  }
+
+  return (
+    <main className="grid min-h-screen lg:grid-cols-[46%_1fr]">
+      <section className="hidden bg-gradient-to-br from-emerald-950 to-emerald-700 p-14 text-white lg:flex lg:flex-col lg:justify-between">
+        <b className="grid h-14 w-14 place-items-center rounded-2xl bg-lime-200 text-2xl text-emerald-950">N</b>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-lime-200">Nutrición con propósito</p>
+          <h1 className="mt-4 font-display text-6xl font-extrabold leading-tight">Cuida mejor.<br />Avanza mejor.</h1>
+          <p className="mt-5 max-w-md text-emerald-100">Pacientes, planes y cálculos nutricionales en un solo lugar.</p>
+        </div>
+      </section>
+      <section className="grid place-items-center bg-white p-6 dark:bg-emerald-950">
+        <form className="w-full max-w-md" onSubmit={submit}>
+          <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">NUTRIMEJOR</p>
+          <h2 className="mt-2 font-display text-4xl font-extrabold">{register ? "Crear cuenta" : "Iniciar sesión"}</h2>
+          <p className="mt-3 text-slate-500">{register ? "Regístrate como nutricionista." : "Ingresa tus datos para acceder."}</p>
+          {register && <>
+            <label className="mt-7 block text-sm font-semibold">Nombre completo</label>
+            <input name="name" className="mt-2 h-12 w-full rounded-xl border bg-transparent px-4" required />
+          </>}
+          <label className="mt-5 block text-sm font-semibold">Correo electrónico</label>
+          <div className="relative mt-2">
+            <Mail className="absolute left-4 top-3.5 h-5 w-5 text-slate-400" />
+            <input name="email" className="h-12 w-full rounded-xl border bg-transparent pl-12" type="email" required />
+          </div>
+          <label className="mt-5 block text-sm font-semibold">Contraseña</label>
+          <div className="relative mt-2">
+            <Lock className="absolute left-4 top-3.5 h-5 w-5 text-slate-400" />
+            <input name="password" className="h-12 w-full rounded-xl border bg-transparent pl-12" type="password" minLength={8} required />
+          </div>
+          {!register && <Link className="mt-3 block text-right text-sm font-semibold text-emerald-700" href="/recuperar">¿Olvidaste tu contraseña?</Link>}
+          {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+          <button disabled={busy} className="mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 font-semibold text-white">
+            {busy ? "Procesando…" : <>{register ? "Crear cuenta" : "Ingresar"} <ArrowRight className="h-4 w-4" /></>}
+          </button>
+          <p className="mt-6 text-center text-sm text-slate-500">
+            {register ? "¿Ya tienes cuenta?" : "¿No tienes cuenta?"}{" "}
+            <button type="button" onClick={() => setRegister(!register)} className="font-bold text-emerald-700">
+              {register ? "Iniciar sesión" : "Crear cuenta"}
+            </button>
+          </p>
+        </form>
+      </section>
+    </main>
+  );
+}

@@ -1,0 +1,77 @@
+openapi: 3.1.0
+info:
+  title: NUTRIMEJOR Subscriptions API
+  version: 1.1.0
+paths:
+  /health/live:
+    get:
+      responses:
+        '200': { description: Proceso activo }
+  /health/ready:
+    get:
+      responses:
+        '200': { description: Servicio y base disponibles }
+  /v1/plans:
+    get:
+      security: [{ bearerAuth: [], serviceKey: [] }]
+      responses:
+        '200': { description: Planes y funciones disponibles }
+  /v1/subscriptions/current:
+    get:
+      security: [{ bearerAuth: [], serviceKey: [] }]
+      responses:
+        '200': { description: Suscripción de la organización }
+    put:
+      security: [{ bearerAuth: [], serviceKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planCode]
+              properties:
+                planCode: { type: string, enum: [BASIC, PRO, SPORT] }
+      responses:
+        '200': { description: Plan actualizado }
+        '403': { description: Rol insuficiente }
+  /v1/entitlements:
+    get:
+      security: [{ bearerAuth: [], serviceKey: [] }]
+      responses:
+        '200': { description: Snapshot de derechos y cuotas }
+  /v1/usage/consume:
+    post:
+      security: [{ bearerAuth: [], serviceKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [featureCode]
+              properties:
+                featureCode: { type: string }
+                amount: { type: integer, minimum: 1, default: 1 }
+      responses:
+        '200': { description: Consumo registrado }
+        '403': { description: Función no incluida }
+        '409': { description: Cuota agotada }
+  /v1/subscriptions/current/cancel:
+    post:
+      responses:
+        '200': { description: Suscripción cancelada y derechos desactivados }
+        '403': { description: Rol insuficiente }
+  /v1/subscriptions/current/reactivate:
+    post:
+      responses:
+        '200': { description: Plan anterior reactivado con nuevo periodo }
+        '403': { description: Rol insuficiente }
+  /v1/subscriptions/current/history:
+    get:
+      responses:
+        '200': { description: Historial de plan y estado }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    serviceKey: { type: apiKey, in: header, name: x-service-key }
