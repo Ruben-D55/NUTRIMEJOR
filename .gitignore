@@ -7,5 +7,7 @@ npm-debug.log*
 backups/
 output/
 tmp/
+playwright-report/
+test-results/
 **/bin/
 **/obj/
