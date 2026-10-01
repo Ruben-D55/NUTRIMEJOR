@@ -51,6 +51,8 @@ test("registro, cierre de sesión, recuperación e inicio de sesión", async ({ 
   await login(page, email);
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
   await page.getByRole("link", { name: "¿Olvidaste tu contraseña?" }).click();
+  await expect(page).toHaveURL(/\/recuperar$/);
+  await expect(page.getByRole("heading", { name: "Recuperar contraseña" })).toBeVisible();
   await page.locator('input[name="email"]').fill(email);
   await page.getByRole("button", { name: "Solicitar recuperación" }).click();
   const token = page.locator('input[name="token"]');
