@@ -14,6 +14,14 @@ test("resolves versioned gateway routes for every module", () => {
     service: "clinical",
     upstreamPath: "/v1/consultations",
   });
+  assert.deepEqual(resolveRoute("/api/v1/catalogs/foods"), {
+    service: "catalogs",
+    upstreamPath: "/v1/foods",
+  });
+  assert.deepEqual(resolveRoute("/api/v1/catalogs/alimentos"), {
+    service: "catalogs",
+    upstreamPath: "/v1/catalogs/alimentos",
+  });
   assert.equal(resolveRoute("/api/v2/patients"), null);
   assert.equal(resolveRoute("/api/v1/unknown"), null);
 });
