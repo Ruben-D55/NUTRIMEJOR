@@ -155,9 +155,11 @@ jobs:
         run: |
           mapfile -t images < <(docker image ls --format '{{.Repository}}:{{.Tag}}' | grep '^nutrimejor-' | sort -u)
           test ${#images[@]} -gt 0
+          failed=0
           for image in "${images[@]}"; do
-            trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed "$image"
+            trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed "$image" || failed=1
           done
+          exit "$failed"
 
   codeql:
     runs-on: ubuntu-latest
