@@ -76,6 +76,25 @@ test("assistants cannot invite organization members", async () => {
   );
 });
 
+test("assistants and patients cannot administer organizations", () => {
+  const service = fixture();
+  assert.throws(
+    () => service.createOrganization({ id: 7, organizationRole: "ASSISTANT" }, { name: "Otra clínica" }),
+    (error) => error.code === "FORBIDDEN",
+  );
+  assert.throws(
+    () => service.listMembers(
+      {
+        id: 8,
+        organizationId: "eb7ee0b4-3fff-414b-a2c9-d815bd30e310",
+        organizationRole: "PATIENT",
+      },
+      "eb7ee0b4-3fff-414b-a2c9-d815bd30e310",
+    ),
+    (error) => error.code === "FORBIDDEN",
+  );
+});
+
 test("switching organization issues a token for an active membership", async () => {
   const organizationId = "7b774def-07e7-40cc-a57e-73431273bf6f";
   const users = {

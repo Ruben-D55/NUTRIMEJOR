@@ -1,7 +1,7 @@
 import http from "node:http";
-import { timingSafeEqual } from "node:crypto";
 import { ZodError } from "zod";
 import { DomainError, unauthorized } from "../../domain/errors.js";
+import { verifyServiceRequest } from "../../infrastructure/security/service-auth.js";
 
 function send(response, status, body, requestId) {
   response.writeHead(status, {
@@ -28,11 +28,6 @@ async function readJson(request) {
   }
 }
 
-function equal(left, right) {
-  const a = Buffer.from(left || "");
-  const b = Buffer.from(right || "");
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 export function createServer(subscriptions, identity, config, readiness) {
   return http.createServer(async (request, response) => {
@@ -47,7 +42,7 @@ export function createServer(subscriptions, identity, config, readiness) {
         await readiness();
         return send(response, 200, { status: "ready", service: config.serviceName }, requestId);
       }
-      if (!equal(request.headers["x-service-key"], config.serviceKey)) {
+      if (!verifyServiceRequest(request, config.serviceKey)) {
         throw unauthorized("Cliente de servicio no autorizado.");
       }
       const internal = url.pathname.match(/^\/v1\/internal\/organizations\/([0-9a-f-]+)\/(entitlements|consume)$/i);

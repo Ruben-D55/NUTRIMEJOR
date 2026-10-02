@@ -23,16 +23,31 @@ const connection = (database) => ({
   host: process.env.PGHOST || "127.0.0.1",
   port: Number(process.env.PGPORT || 55432),
   user: process.env.PGUSER || "nutrimejor",
-  password: process.env.PGPASSWORD || "IntegrationPassword123!",
+  password: process.env.POSTGRES_INTEGRATION_PASSWORD,
   database,
   max: 2,
   connectionTimeoutMillis: 10_000,
 });
 
 test("each service owns an isolated real PostgreSQL database", async (context) => {
+  assert.ok(
+    process.env.POSTGRES_INTEGRATION_PASSWORD,
+    "POSTGRES_INTEGRATION_PASSWORD is required for the integration database",
+  );
   const admin = new Pool(connection("postgres"));
   context.after(() => admin.end());
-  const version = await admin.query("SELECT version() AS version");
+  let version;
+  for (let attempt = 1; attempt <= 30; attempt += 1) {
+    try {
+      version = await admin.query("SELECT version() AS version");
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await admin.query("SELECT 1");
+      break;
+    } catch (error) {
+      if (attempt === 30) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+    }
+  }
   assert.match(version.rows[0].version, /^PostgreSQL 17\./);
 
   const databaseRows = await admin.query(

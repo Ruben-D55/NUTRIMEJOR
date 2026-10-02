@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { createHmac, randomUUID } from "node:crypto";
 
 export type ServiceName =
   | "identity"
@@ -34,6 +35,24 @@ function requestId(request?: Request) {
   return request?.headers.get("x-request-id") || crypto.randomUUID();
 }
 
+function serviceHeaders(method: string, path: string) {
+  const secret = process.env.SERVICE_API_KEY;
+  if (!secret || secret.length < 32) throw new Error("SERVICE_API_KEY no está configurada de forma segura.");
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const nonce = randomUUID();
+  const signature = createHmac("sha256", secret)
+    .update(`${timestamp}.${nonce}.${method.toUpperCase()}.${path}`)
+    .digest("hex");
+  return { timestamp, nonce, signature };
+}
+
+function sign(headers: Headers, method: string, path: string) {
+  const proof = serviceHeaders(method, path);
+  headers.set("x-service-timestamp", proof.timestamp);
+  headers.set("x-service-nonce", proof.nonce);
+  headers.set("x-service-signature", proof.signature);
+}
+
 export async function callService(
   service: ServiceName,
   path: string,
@@ -43,14 +62,16 @@ export async function callService(
   const cookieStore = await cookies();
   const token = cookieStore.get("nm_session")?.value;
   const headers = new Headers(options.headers);
+  const method = options.method || "GET";
   headers.set("accept", "application/json");
   headers.set("x-request-id", requestId(request));
-  headers.set("x-service-key", process.env.SERVICE_API_KEY || "development-only-key");
+  sign(headers, method, path);
   if (token) headers.set("authorization", `Bearer ${token}`);
   if (options.body) headers.set("content-type", "application/json");
 
   let response = await fetch(`${serviceUrls[service]}${path}`, {
     ...options,
+    method,
     headers,
     cache: "no-store",
     signal: AbortSignal.timeout(Number(process.env.SERVICE_TIMEOUT_MS || 5000)),
@@ -59,6 +80,7 @@ export async function callService(
     const renewed = await renewSession(request);
     if (renewed) {
       headers.set("authorization", `Bearer ${renewed.accessToken}`);
+      sign(headers, method, path);
       response = await fetch(`${serviceUrls[service]}${path}`, {
         ...options,
         headers,
@@ -74,13 +96,12 @@ export async function renewSession(request?: Request) {
   const cookieStore = await cookies();
   const refreshToken = cookieStore.get("nm_refresh")?.value;
   if (!refreshToken) return null;
-  const response = await fetch(`${serviceUrls.identity}/v1/sessions/refresh`, {
+  const path = "/v1/sessions/refresh";
+  const headers = new Headers({ "content-type": "application/json", "x-request-id": requestId(request) });
+  sign(headers, "POST", path);
+  const response = await fetch(`${serviceUrls.identity}${path}`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-service-key": process.env.SERVICE_API_KEY || "development-only-key",
-      "x-request-id": requestId(request),
-    },
+    headers,
     body: JSON.stringify({ refreshToken }),
     cache: "no-store",
     signal: AbortSignal.timeout(Number(process.env.SERVICE_TIMEOUT_MS || 5000)),
@@ -117,11 +138,14 @@ export async function proxyService(
   }
 }
 
+const accessTokenMinutes = Math.min(30, Math.max(5, Number(process.env.ACCESS_TOKEN_MINUTES || 10)));
+const refreshTokenDays = Math.min(30, Math.max(1, Number(process.env.REFRESH_TOKEN_DAYS || 7)));
+
 export const sessionCookie = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax" as const,
-  maxAge: 1800,
+  maxAge: accessTokenMinutes * 60,
   path: "/",
 };
 
@@ -129,6 +153,6 @@ export const refreshCookie = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "strict" as const,
-  maxAge: 2592000,
+  maxAge: refreshTokenDays * 24 * 60 * 60,
   path: "/",
 };

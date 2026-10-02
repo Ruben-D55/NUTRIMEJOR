@@ -1,7 +1,7 @@
 import http from "node:http";
-import { timingSafeEqual } from "node:crypto";
 import { ZodError } from "zod";
 import { DomainError, unauthorized } from "../../domain/errors.js";
+import { verifyServiceRequest } from "../../infrastructure/security/service-auth.js";
 
 function json(response, status, body, requestId) {
   response.writeHead(status, {
@@ -28,11 +28,6 @@ async function readJson(request) {
   }
 }
 
-function constantTimeEqual(left, right) {
-  const a = Buffer.from(left || "");
-  const b = Buffer.from(right || "");
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 function bearer(request) {
   const value = request.headers.authorization || "";
@@ -68,7 +63,7 @@ export function createServer(identity, config, readiness) {
       if (request.method === "GET" && url.pathname === "/.well-known/jwks.json") {
         return json(response, 200, await identity.jwks(), requestId);
       }
-      if (!constantTimeEqual(request.headers["x-service-key"], config.serviceKey)) {
+      if (!verifyServiceRequest(request, config.serviceKey)) {
         throw unauthorized("Cliente de servicio no autorizado.");
       }
 
@@ -94,6 +89,9 @@ export function createServer(identity, config, readiness) {
       const actor = await identity.authenticate(bearer(request));
       if (request.method === "GET" && url.pathname === "/v1/sessions/me") {
         return json(response, 200, { user: actor }, requestId);
+      }
+      if (request.method === "POST" && url.pathname === "/v1/sessions/revoke-all") {
+        return json(response, 200, await identity.logoutAll(actor, context), requestId);
       }
       if (request.method === "GET" && url.pathname === "/v1/profile") {
         return json(response, 200, await identity.getProfile(actor), requestId);

@@ -30,7 +30,8 @@
     "smoke:health-load": "node scripts/smoke-health-load.mjs",
     "test:integration:postgres": "node --test tests/integration/postgres-service-databases.mjs",
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "setup:env": "node scripts/setup-local-env.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",

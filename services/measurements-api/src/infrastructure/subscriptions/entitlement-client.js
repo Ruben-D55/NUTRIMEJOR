@@ -1,4 +1,5 @@
 import { DomainError, unavailable } from "../../domain/errors.js";
+import { signedServiceHeaders } from "../security/service-auth.js";
 
 export class EntitlementClient {
   constructor(config) {
@@ -7,10 +8,11 @@ export class EntitlementClient {
     this.timeoutMs = config.subscriptionsTimeoutMs;
   }
   async assert(organizationId, featureCode) {
+    const path = `/v1/internal/organizations/${organizationId}/entitlements`;
     let response;
     try {
-      response = await fetch(`${this.baseUrl}/v1/internal/organizations/${organizationId}/entitlements`, {
-        headers: { "x-service-key": this.serviceKey },
+      response = await fetch(`${this.baseUrl}${path}`, {
+        headers: signedServiceHeaders(this.serviceKey, "GET", path),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch {

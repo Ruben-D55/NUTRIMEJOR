@@ -5,7 +5,7 @@ services:
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: nutrimejor
-      POSTGRES_PASSWORD: IntegrationPassword123!
+      POSTGRES_PASSWORD: ${POSTGRES_INTEGRATION_PASSWORD:?Define POSTGRES_INTEGRATION_PASSWORD}
       POSTGRES_DB: postgres
     ports:
       - "55432:5432"

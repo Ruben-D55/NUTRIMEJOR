@@ -8,6 +8,8 @@ export class DomainError extends Error {
 
 export const unauthorized = (message = "Sesión inválida o vencida.") =>
   new DomainError(message, 401, "UNAUTHORIZED");
+export const forbidden = (message = "No tienes permisos para esta operación.") =>
+  new DomainError(message, 403, "FORBIDDEN");
 export const notFound = (message = "Registro no encontrado.") =>
   new DomainError(message, 404, "NOT_FOUND");
 export const unavailable = (message) =>

@@ -1,6 +1,8 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { createHmac, randomUUID } from "node:crypto";
 
-const serviceKey = process.env.SERVICE_API_KEY || "local-service-key-change-me-1234";
+const serviceKey = process.env.SERVICE_API_KEY;
+if (!serviceKey || serviceKey.length < 32) throw new Error("SERVICE_API_KEY is required for E2E tests");
 const password = "Password123!";
 
 async function service<T>(
@@ -9,10 +11,18 @@ async function service<T>(
   path: string,
   options: { method?: string; token?: string; data?: unknown; status?: number } = {},
 ) {
+  const method = options.method || "GET";
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const nonce = randomUUID();
+  const signature = createHmac("sha256", serviceKey)
+    .update(`${timestamp}.${nonce}.${method}.${path}`)
+    .digest("hex");
   const response = await request.fetch(`http://127.0.0.1:${port}${path}`, {
-    method: options.method || "GET",
+    method,
     headers: {
-      "x-service-key": serviceKey,
+      "x-service-timestamp": timestamp,
+      "x-service-nonce": nonce,
+      "x-service-signature": signature,
       ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
     },
     data: options.data,
@@ -268,7 +278,7 @@ test("flujo integral clínico, mediciones, plan, agenda, reporte y documento", a
   });
   expect(queuedDocument.status).toBe("queued");
   let generatedStatus = queuedDocument.status;
-  for (let attempt = 0; attempt < 30 && generatedStatus === "queued"; attempt += 1) {
+  for (let attempt = 0; attempt < 60 && ["queued", "processing"].includes(generatedStatus); attempt += 1) {
     await page.waitForTimeout(500);
     const generated = await service<{ status: string }>(
       request,

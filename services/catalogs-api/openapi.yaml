@@ -5,7 +5,9 @@ info:
   description: Alimentos, nutrientes, porciones, recetas y biblioteca profesional.
 security:
   - bearerAuth: []
-    serviceKey: []
+    serviceTimestamp: []
+    serviceNonce: []
+    serviceSignature: []
 paths:
   /health/live:
     get:
@@ -163,7 +165,9 @@ paths:
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
-    serviceKey: { type: apiKey, in: header, name: x-service-key }
+    serviceTimestamp: { type: apiKey, in: header, name: x-service-timestamp }
+    serviceNonce: { type: apiKey, in: header, name: x-service-nonce }
+    serviceSignature: { type: apiKey, in: header, name: x-service-signature }
   parameters:
     Id:
       in: path

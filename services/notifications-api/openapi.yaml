@@ -3,13 +3,20 @@ info:
   title: Nutrimejor Notifications API
   version: 1.1.0
   description: Preferencias, trabajos multicanal, reintentos y cola de fallos.
+security:
+  - bearerAuth: []
+    serviceTimestamp: []
+    serviceNonce: []
+    serviceSignature: []
 paths:
   /health/live:
     get:
+      security: []
       responses:
         '200': { description: Proceso activo }
   /health/ready:
     get:
+      security: []
       responses:
         '200': { description: Servicio listo }
   /v1/notifications:
@@ -107,6 +114,11 @@ paths:
         '200': { description: Regla actualizada }
         '404': { description: Regla no encontrada en la organización }
 components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    serviceTimestamp: { type: apiKey, in: header, name: x-service-timestamp }
+    serviceNonce: { type: apiKey, in: header, name: x-service-nonce }
+    serviceSignature: { type: apiKey, in: header, name: x-service-signature }
   schemas:
     AlertRuleInput:
       type: object

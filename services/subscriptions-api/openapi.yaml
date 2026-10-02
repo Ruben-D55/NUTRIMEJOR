@@ -13,16 +13,16 @@ paths:
         '200': { description: Servicio y base disponibles }
   /v1/plans:
     get:
-      security: [{ bearerAuth: [], serviceKey: [] }]
+      security: [{ bearerAuth: [], serviceTimestamp: [], serviceNonce: [], serviceSignature: [] }]
       responses:
         '200': { description: Planes y funciones disponibles }
   /v1/subscriptions/current:
     get:
-      security: [{ bearerAuth: [], serviceKey: [] }]
+      security: [{ bearerAuth: [], serviceTimestamp: [], serviceNonce: [], serviceSignature: [] }]
       responses:
         '200': { description: Suscripción de la organización }
     put:
-      security: [{ bearerAuth: [], serviceKey: [] }]
+      security: [{ bearerAuth: [], serviceTimestamp: [], serviceNonce: [], serviceSignature: [] }]
       requestBody:
         required: true
         content:
@@ -37,12 +37,12 @@ paths:
         '403': { description: Rol insuficiente }
   /v1/entitlements:
     get:
-      security: [{ bearerAuth: [], serviceKey: [] }]
+      security: [{ bearerAuth: [], serviceTimestamp: [], serviceNonce: [], serviceSignature: [] }]
       responses:
         '200': { description: Snapshot de derechos y cuotas }
   /v1/usage/consume:
     post:
-      security: [{ bearerAuth: [], serviceKey: [] }]
+      security: [{ bearerAuth: [], serviceTimestamp: [], serviceNonce: [], serviceSignature: [] }]
       requestBody:
         required: true
         content:
@@ -74,4 +74,6 @@ paths:
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
-    serviceKey: { type: apiKey, in: header, name: x-service-key }
+    serviceTimestamp: { type: apiKey, in: header, name: x-service-timestamp }
+    serviceNonce: { type: apiKey, in: header, name: x-service-nonce }
+    serviceSignature: { type: apiKey, in: header, name: x-service-signature }

@@ -17,7 +17,7 @@ x-api-common: &api-common
     DB_PORT: 1433
     DB_ENCRYPT: "false"
     DB_TRUST_CERTIFICATE: "true"
-    SERVICE_API_KEY: ${SERVICE_API_KEY:-local-service-key-change-me-1234}
+    SERVICE_API_KEY: ${SERVICE_API_KEY:?Ejecuta npm run setup:env}
     RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
 
 services:
@@ -26,9 +26,9 @@ services:
     restart: unless-stopped
     environment:
       <<: *sql-environment
-      MSSQL_SA_PASSWORD: ${IDENTITY_DB_PASSWORD:-IdentityLocalPassword123!}
+      MSSQL_SA_PASSWORD: ${IDENTITY_DB_PASSWORD:?Ejecuta npm run setup:env}
     ports:
-      - "14331:1433"
+      - "127.0.0.1:14331:1433"
     volumes:
       - identity_data:/var/opt/mssql
 
@@ -37,9 +37,9 @@ services:
     restart: unless-stopped
     environment:
       <<: *sql-environment
-      MSSQL_SA_PASSWORD: ${PATIENTS_DB_PASSWORD:-PatientsLocalPassword123!}
+      MSSQL_SA_PASSWORD: ${PATIENTS_DB_PASSWORD:?Ejecuta npm run setup:env}
     ports:
-      - "14332:1433"
+      - "127.0.0.1:14332:1433"
     volumes:
       - patients_data:/var/opt/mssql
 
@@ -48,9 +48,9 @@ services:
     restart: unless-stopped
     environment:
       <<: *sql-environment
-      MSSQL_SA_PASSWORD: ${CATALOGS_DB_PASSWORD:-CatalogsLocalPassword123!}
+      MSSQL_SA_PASSWORD: ${CATALOGS_DB_PASSWORD:?Ejecuta npm run setup:env}
     ports:
-      - "14333:1433"
+      - "127.0.0.1:14333:1433"
     volumes:
       - catalogs_data:/var/opt/mssql
 
@@ -61,9 +61,9 @@ services:
     environment:
       <<: *sql-environment
       MSSQL_MEMORY_LIMIT_MB: "1536"
-      MSSQL_SA_PASSWORD: ${PLATFORM_DB_PASSWORD:-PlatformLocalPassword123!}
+      MSSQL_SA_PASSWORD: ${PLATFORM_DB_PASSWORD:?Ejecuta npm run setup:env}
     ports:
-      - "14334:1433"
+      - "127.0.0.1:14334:1433"
     volumes:
       - platform_data:/var/opt/mssql
 
@@ -72,10 +72,10 @@ services:
     restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-nutrimejor}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-RabbitLocalPassword123!}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Ejecuta npm run setup:env}
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
@@ -85,7 +85,7 @@ services:
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
 
@@ -100,18 +100,20 @@ services:
       DB_NAME: NutrimejorIdentity
       JWT_PRIVATE_KEY_PATH: /data/jwt-private.pem
       JWT_PUBLIC_KEY_PATH: /data/jwt-public.pem
-      EXPOSE_DEVELOPMENT_TOKENS: ${EXPOSE_DEVELOPMENT_TOKENS:-true}
+      EXPOSE_DEVELOPMENT_TOKENS: ${EXPOSE_DEVELOPMENT_TOKENS:-false}
+      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-10}
+      REFRESH_TOKEN_DAYS: ${REFRESH_TOKEN_DAYS:-7}
       DB_USER: sa
-      DB_PASSWORD: ${IDENTITY_DB_PASSWORD:-IdentityLocalPassword123!}
+      DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?Ejecuta npm run setup:env}
       DB_ENCRYPT: "false"
       DB_TRUST_CERTIFICATE: "true"
       DB_POOL_MAX: 10
-      SERVICE_API_KEY: ${SERVICE_API_KEY:-local-service-key-change-me-1234}
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?Ejecuta npm run setup:env}
       RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
     volumes:
       - identity_keys:/data
     ports:
-      - "4001:4001"
+      - "127.0.0.1:4001:4001"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
@@ -133,17 +135,17 @@ services:
       DB_PORT: 1433
       DB_NAME: NutrimejorPatients
       DB_USER: sa
-      DB_PASSWORD: ${PATIENTS_DB_PASSWORD:-PatientsLocalPassword123!}
+      DB_PASSWORD: ${PATIENTS_DB_PASSWORD:?Ejecuta npm run setup:env}
       DB_ENCRYPT: "false"
       DB_TRUST_CERTIFICATE: "true"
       DB_POOL_MAX: 15
       IDENTITY_API_URL: http://identity-api:4001
       IDENTITY_TIMEOUT_MS: 3000
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:-RabbitLocalPassword123!}@rabbitmq:5672
-      SERVICE_API_KEY: ${SERVICE_API_KEY:-local-service-key-change-me-1234}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:?Ejecuta npm run setup:env}@rabbitmq:5672
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?Ejecuta npm run setup:env}
       RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
     ports:
-      - "4002:4002"
+      - "127.0.0.1:4002:4002"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4002/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
@@ -163,16 +165,16 @@ services:
       DB_PORT: 1433
       DB_NAME: NutrimejorCatalogs
       DB_USER: sa
-      DB_PASSWORD: ${CATALOGS_DB_PASSWORD:-CatalogsLocalPassword123!}
+      DB_PASSWORD: ${CATALOGS_DB_PASSWORD:?Ejecuta npm run setup:env}
       DB_ENCRYPT: "false"
       DB_TRUST_CERTIFICATE: "true"
       DB_POOL_MAX: 10
       IDENTITY_API_URL: http://identity-api:4001
       IDENTITY_TIMEOUT_MS: 3000
-      SERVICE_API_KEY: ${SERVICE_API_KEY:-local-service-key-change-me-1234}
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?Ejecuta npm run setup:env}
       RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
     ports:
-      - "4003:4003"
+      - "127.0.0.1:4003:4003"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4003/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
@@ -192,18 +194,18 @@ services:
       DB_SERVER: platform-db
       DB_PORT: 1433
       DB_USER: sa
-      DB_PASSWORD: ${PLATFORM_DB_PASSWORD:-PlatformLocalPassword123!}
+      DB_PASSWORD: ${PLATFORM_DB_PASSWORD:?Ejecuta npm run setup:env}
       DB_ENCRYPT: "false"
       DB_TRUST_CERTIFICATE: "true"
       DB_POOL_MAX: 8
       IDENTITY_API_URL: http://identity-api:4001
       IDENTITY_TIMEOUT_MS: 3000
-      SERVICE_API_KEY: ${SERVICE_API_KEY:-local-service-key-change-me-1234}
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:-RabbitLocalPassword123!}@rabbitmq:5672
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?Ejecuta npm run setup:env}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:?Ejecuta npm run setup:env}@rabbitmq:5672
       DB_NAME: NutrimejorSubscriptions
       RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
     ports:
-      - "4004:4004"
+      - "127.0.0.1:4004:4004"
 
   clinical-api:
     <<: *api-common
@@ -216,7 +218,7 @@ services:
       <<: *platform-api-environment
       DB_NAME: NutrimejorClinical
     ports:
-      - "4005:4005"
+      - "127.0.0.1:4005:4005"
 
   measurements-api:
     <<: *api-common
@@ -231,7 +233,7 @@ services:
       DB_NAME: NutrimejorMeasurements
       SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
     ports:
-      - "4006:4006"
+      - "127.0.0.1:4006:4006"
 
   nutrition-api:
     <<: *api-common
@@ -248,7 +250,7 @@ services:
       CATALOGS_API_URL: http://catalogs-api:4003
       SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
     ports:
-      - "4007:4007"
+      - "127.0.0.1:4007:4007"
 
   planning-api:
     <<: *api-common
@@ -265,7 +267,7 @@ services:
       CATALOGS_API_URL: http://catalogs-api:4003
       SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
     ports:
-      - "4008:4008"
+      - "127.0.0.1:4008:4008"
 
   scheduling-api:
     <<: *api-common
@@ -278,9 +280,9 @@ services:
     environment:
       <<: *platform-api-environment
       DB_NAME: NutrimejorScheduling
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:-RabbitLocalPassword123!}@rabbitmq:5672
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:?Ejecuta npm run setup:env}@rabbitmq:5672
     ports:
-      - "4009:4009"
+      - "127.0.0.1:4009:4009"
 
   notifications-api:
     <<: *api-common
@@ -294,10 +296,10 @@ services:
     environment:
       <<: *platform-api-environment
       DB_NAME: NutrimejorNotifications
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:-RabbitLocalPassword123!}@rabbitmq:5672
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:?Ejecuta npm run setup:env}@rabbitmq:5672
       SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
     ports:
-      - "4010:4010"
+      - "127.0.0.1:4010:4010"
 
   documents-api:
     <<: *api-common
@@ -313,7 +315,7 @@ services:
       OBJECT_STORAGE_PATH: /data/documents
       SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
     ports:
-      - "4011:4011"
+      - "127.0.0.1:4011:4011"
     volumes:
       - documents_data:/data/documents
 
@@ -328,9 +330,9 @@ services:
     environment:
       <<: *platform-api-environment
       DB_NAME: NutrimejorReporting
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:-RabbitLocalPassword123!}@rabbitmq:5672
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:?Ejecuta npm run setup:env}@rabbitmq:5672
     ports:
-      - "4012:4012"
+      - "127.0.0.1:4012:4012"
 
   web:
     build: .
@@ -356,7 +358,7 @@ services:
       NOTIFICATIONS_API_URL: http://notifications-api:4010
       DOCUMENTS_API_URL: http://documents-api:4011
       REPORTING_API_URL: http://reporting-api:4012
-      SERVICE_API_KEY: ${SERVICE_API_KEY:-local-service-key-change-me-1234}
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?Ejecuta npm run setup:env}
       SERVICE_TIMEOUT_MS: 5000
     ports:
       - "3000:3000"
@@ -373,7 +375,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ServiceApiKey: ${SERVICE_API_KEY:-local-service-key-change-me-1234}
+      ServiceApiKey: ${SERVICE_API_KEY:?Ejecuta npm run setup:env}
       Services__identity: http://identity-api:4001
       Services__patients: http://patients-api:4002
       Services__catalogs: http://catalogs-api:4003

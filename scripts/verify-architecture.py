@@ -69,10 +69,10 @@ def main() -> int:
         if database in databases:
             fail(errors, f"{name}: DB_NAME duplicado {database}")
         databases.add(database)
-        published_port = f"{port}:{port}"
+        published_port = f"127.0.0.1:{port}:{port}"
         ports = [str(value) for value in api.get("ports", [])]
         if published_port not in ports:
-            fail(errors, f"{name}: falta puerto {published_port}")
+            fail(errors, f"{name}: falta puerto local {published_port}")
 
         domain = root / "src" / "domain"
         for file in source_files(domain):

@@ -1,5 +1,18 @@
 import { z } from "zod";
-import { notFound } from "../domain/errors.js";
+import { forbidden, notFound } from "../domain/errors.js";
+
+function protectedRepository(repository) {
+  const reads = new Set(["list", "listNutrients", "listFoods", "getFood", "listRecipes", "getRecipe", "listRecommendations", "listEducation"]);
+  return new Proxy(repository, { get(target, property, receiver) {
+    const original=Reflect.get(target, property, receiver);
+    if (typeof original !== "function") return original;
+    return (...args) => {
+      const actor=args[0];
+      if (["PATIENT", "ASSISTANT"].includes(actor?.organizationRole) && !reads.has(String(property))) throw forbidden();
+      return original.apply(target, args);
+    };
+  }});
+}
 
 const typeSchema = z.enum(["recetas", "alimentos", "dietas"]);
 const idSchema = z.string().uuid();
@@ -85,7 +98,7 @@ const educationSchema = z.object({
 
 export class CatalogService {
   constructor(repository) {
-    this.repository = repository;
+    this.repository = protectedRepository(repository);
   }
 
   list(actor, type) {

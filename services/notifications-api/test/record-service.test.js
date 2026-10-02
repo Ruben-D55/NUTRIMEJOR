@@ -56,3 +56,30 @@ test("requires automation entitlement for configurable alert rules", async () =>
   assert.equal(received.conditions.days, 30);
   assert.deepEqual(checked[0], ["f58e9c5e-8ff6-44d7-b16a-c22de422da99", "notifications.automation"]);
 });
+
+test("patient only lists notifications linked to their patient record", async () => {
+  const ownPatientId = "11111111-1111-4111-8111-111111111111";
+  let receivedPatientId;
+  const service = new RecordService({
+    list: async (_actor, patientId) => ((receivedPatientId = patientId), []),
+  });
+  const actor = { organizationRole: "PATIENT", patientId: ownPatientId };
+
+  await service.list(actor);
+  assert.equal(receivedPatientId, ownPatientId);
+  assert.throws(
+    () => service.list(actor, "22222222-2222-4222-8222-222222222222"),
+    (error) => error.code === "FORBIDDEN",
+  );
+});
+
+test("patient cannot modify notification records", () => {
+  const service = new RecordService({ create: async () => ({}) });
+  assert.throws(
+    () => service.create(
+      { organizationRole: "PATIENT", patientId: "11111111-1111-4111-8111-111111111111" },
+      { title: "Recordatorio" },
+    ),
+    (error) => error.code === "FORBIDDEN",
+  );
+});

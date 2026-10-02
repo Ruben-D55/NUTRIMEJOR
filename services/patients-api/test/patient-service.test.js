@@ -70,3 +70,23 @@ test("rejects clinical notes in the administrative patient history", async () =>
     (error) => error.name === "ZodError",
   );
 });
+
+test("patients can read only their own administrative record", async () => {
+  const ownId = "4bd49bf1-95f7-4762-a3c5-cdd064812d31";
+  const service = new PatientService({ get: async (_actor, id) => ({ id }) });
+  const patientActor = { id: 9, organizationRole: "PATIENT", patientId: ownId };
+  assert.equal((await service.get(patientActor, ownId)).id, ownId);
+  await assert.rejects(
+    () => service.get(patientActor, "65b9593a-f609-47ac-8b9c-c82ed29fe771"),
+    (error) => error.status === 403,
+  );
+});
+
+test("patients cannot modify patient records", async () => {
+  const ownId = "4bd49bf1-95f7-4762-a3c5-cdd064812d31";
+  const service = new PatientService({ findDuplicate: async () => null, update: async () => ({}) });
+  await assert.rejects(
+    () => service.update({ organizationRole: "PATIENT", patientId: ownId }, ownId, validPatient),
+    (error) => error.status === 403,
+  );
+});

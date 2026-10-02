@@ -1,8 +1,13 @@
 openapi: 3.1.0
 info: { title: NUTRIMEJOR Identity API, version: 1.0.0 }
+security:
+  - serviceTimestamp: []
+    serviceNonce: []
+    serviceSignature: []
 paths:
   /.well-known/jwks.json:
     get:
+      security: []
       responses: { '200': { description: Claves públicas para validar JWT } }
   /v1/users:
     post:
@@ -12,7 +17,7 @@ paths:
       responses: { '200': { description: Sesión iniciada }, '401': { description: Credenciales inválidas } }
   /v1/sessions/me:
     get:
-      security: [{ bearerAuth: [], serviceKey: [] }]
+      security: [{ bearerAuth: [], serviceTimestamp: [], serviceNonce: [], serviceSignature: [] }]
       responses: { '200': { description: Actor autenticado } }
   /v1/sessions/refresh:
     post:
@@ -20,6 +25,10 @@ paths:
   /v1/sessions/logout:
     post:
       responses: { '200': { description: Sesión revocada } }
+  /v1/sessions/revoke-all:
+    post:
+      security: [{ bearerAuth: [], serviceTimestamp: [], serviceNonce: [], serviceSignature: [] }]
+      responses: { '200': { description: Todas las sesiones de la organización fueron revocadas } }
   /v1/password-resets:
     post:
       responses: { '202': { description: Solicitud aceptada sin revelar si la cuenta existe } }
@@ -28,34 +37,36 @@ paths:
       responses: { '200': { description: Contraseña actualizada y sesiones revocadas }, '400': { description: Token inválido o vencido } }
   /v1/audit/access:
     get:
-      security: [{ bearerAuth: [], serviceKey: [] }]
+      security: [{ bearerAuth: [], serviceTimestamp: [], serviceNonce: [], serviceSignature: [] }]
       responses: { '200': { description: Eventos de acceso visibles para el actor } }
   /v1/sessions/organization:
     post:
-      security: [{ bearerAuth: [], serviceKey: [] }]
+      security: [{ bearerAuth: [], serviceTimestamp: [], serviceNonce: [], serviceSignature: [] }]
       responses: { '200': { description: Token para la organización seleccionada } }
   /v1/organizations:
     get:
-      security: [{ bearerAuth: [], serviceKey: [] }]
+      security: [{ bearerAuth: [], serviceTimestamp: [], serviceNonce: [], serviceSignature: [] }]
       responses: { '200': { description: Organizaciones del usuario } }
     post:
-      security: [{ bearerAuth: [], serviceKey: [] }]
+      security: [{ bearerAuth: [], serviceTimestamp: [], serviceNonce: [], serviceSignature: [] }]
       responses: { '201': { description: Organización creada } }
   /v1/organizations/{id}/members:
     get:
-      security: [{ bearerAuth: [], serviceKey: [] }]
+      security: [{ bearerAuth: [], serviceTimestamp: [], serviceNonce: [], serviceSignature: [] }]
       parameters: [{ in: path, name: id, required: true, schema: { type: string, format: uuid } }]
       responses: { '200': { description: Miembros de la organización } }
   /v1/organizations/{id}/invitations:
     post:
-      security: [{ bearerAuth: [], serviceKey: [] }]
+      security: [{ bearerAuth: [], serviceTimestamp: [], serviceNonce: [], serviceSignature: [] }]
       parameters: [{ in: path, name: id, required: true, schema: { type: string, format: uuid } }]
       responses: { '201': { description: Invitación creada }, '403': { description: Rol insuficiente } }
   /v1/invitations/accept:
     post:
-      security: [{ bearerAuth: [], serviceKey: [] }]
+      security: [{ bearerAuth: [], serviceTimestamp: [], serviceNonce: [], serviceSignature: [] }]
       responses: { '200': { description: Invitación aceptada y token emitido } }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
-    serviceKey: { type: apiKey, in: header, name: x-service-key }
+    serviceTimestamp: { type: apiKey, in: header, name: x-service-timestamp }
+    serviceNonce: { type: apiKey, in: header, name: x-service-nonce }
+    serviceSignature: { type: apiKey, in: header, name: x-service-signature }

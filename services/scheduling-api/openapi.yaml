@@ -3,13 +3,20 @@ info:
   title: Nutrimejor Scheduling API
   version: 1.1.0
   description: Disponibilidad, agenda, conflictos e historial de estados.
+security:
+  - bearerAuth: []
+    serviceTimestamp: []
+    serviceNonce: []
+    serviceSignature: []
 paths:
   /health/live:
     get:
+      security: []
       responses:
         '200': { description: Proceso activo }
   /health/ready:
     get:
+      security: []
       responses:
         '200': { description: Servicio listo }
   /v1/appointments:
@@ -83,3 +90,9 @@ paths:
           schema: { type: string, format: date-time }
       responses:
         '200': { description: 'Ventanas, excepciones y ocupación' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    serviceTimestamp: { type: apiKey, in: header, name: x-service-timestamp }
+    serviceNonce: { type: apiKey, in: header, name: x-service-nonce }
+    serviceSignature: { type: apiKey, in: header, name: x-service-signature }

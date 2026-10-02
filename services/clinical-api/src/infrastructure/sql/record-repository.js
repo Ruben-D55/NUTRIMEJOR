@@ -63,6 +63,23 @@ const entrySelect = `
   FROM ClinicalEntries`;
 
 export class SqlRecordRepository {
+  async auditAccess(actor, event) {
+    const pool = await database();
+    await pool.request()
+      .input("organizationId", sql.UniqueIdentifier, actor.organizationId)
+      .input("userId", sql.Int, actor.id)
+      .input("role", sql.VarChar(20), actor.organizationRole || null)
+      .input("action", sql.VarChar(80), event.action)
+      .input("entityType", sql.VarChar(80), event.entityType)
+      .input("entityId", sql.NVarChar(100), event.entityId ? String(event.entityId) : null)
+      .input("patientId", sql.UniqueIdentifier, event.patientId || null)
+      .input("success", sql.Bit, event.success)
+      .input("details", sql.NVarChar(sql.MAX), JSON.stringify(event.details || {}))
+      .query(`INSERT INTO ClinicalAuditEvents
+              (IdOrganizacion, IdUsuario, Rol, Accion, TipoEntidad, IdEntidad, IdPaciente, Exitoso, Detalles)
+              VALUES (@organizationId, @userId, @role, @action, @entityType, @entityId, @patientId, @success, @details)`);
+  }
+
   async list(actor, patientId) {
     const pool = await database();
     const request = pool.request().input("organizationId", sql.UniqueIdentifier, actor.organizationId);

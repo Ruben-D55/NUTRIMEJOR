@@ -1,4 +1,5 @@
 import { DomainError, unavailable } from "../../domain/errors.js";
+import { signedServiceHeaders } from "../security/service-auth.js";
 
 export class CatalogsClient {
   constructor(config) {
@@ -8,14 +9,14 @@ export class CatalogsClient {
   }
 
   async getFood(id, authorization, requestId) {
+    const path = `/v1/foods/${encodeURIComponent(id)}`;
     let response;
     try {
-      response = await fetch(`${this.baseUrl}/v1/foods/${encodeURIComponent(id)}`, {
-        headers: {
+      response = await fetch(`${this.baseUrl}${path}`, {
+        headers: signedServiceHeaders(this.serviceKey, "GET", path, {
           authorization,
-          "x-service-key": this.serviceKey,
           "x-request-id": requestId,
-        },
+        }),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch {

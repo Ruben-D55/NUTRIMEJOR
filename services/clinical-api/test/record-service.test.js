@@ -54,3 +54,16 @@ test("rejects an invalid patient id", () => {
   const service = new RecordService({ list: async () => [] });
   assert.throws(() => service.list({ id: 7 }, "invalid"));
 });
+
+test("patients can read their own consultations but cannot write clinical data", async () => {
+  const service = new RecordService({
+    list: async () => [{ id: "own", patientId }],
+    create: async () => ({ id: "unexpected" }),
+  });
+  const patientActor = { id: 12, organizationRole: "PATIENT", patientId };
+  assert.equal((await service.list(patientActor, patientId))[0].id, "own");
+  assert.throws(
+    () => service.create(patientActor, { patientId, title: "No permitido", data: {} }),
+    (error) => error.status === 403,
+  );
+});
