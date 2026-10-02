@@ -34,8 +34,10 @@ jobs:
       - run: npm run test:services
       - run: python scripts/validate-openapi.py
       - run: python scripts/verify-architecture.py
+      - run: python scripts/verify-observability.py
       - run: docker compose config --quiet
       - run: docker compose --profile full config --quiet
+      - run: docker compose --profile monitoring config --quiet
       - run: docker compose --profile full build
 
   postgres-integration:

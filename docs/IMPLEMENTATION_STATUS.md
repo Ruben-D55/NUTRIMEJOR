@@ -89,3 +89,11 @@ formularios dedicados.
 - Reintentos de lecturas, tiempos máximos y circuit breaker por servicio.
 - Identificadores de correlación propagados de extremo a extremo.
 - Frontends, Playwright y pruebas de humo conectados exclusivamente al gateway.
+
+# Fase 5: monitoreo
+
+- Trazas OpenTelemetry con propagación W3C desde el gateway y almacenamiento en Tempo.
+- Registros JSON centralizados en Loki mediante descubrimiento de contenedores con Grafana Alloy.
+- Métricas de tráfico, errores, latencia, disponibilidad, bases y RabbitMQ en Prometheus.
+- Dashboard operativo provisionado automáticamente en Grafana.
+- Alertmanager y reglas para APIs, bases, latencia, errores, circuitos y colas pendientes.

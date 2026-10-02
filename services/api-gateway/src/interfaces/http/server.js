@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { authorize } from "../../application/authorization.js";
 import { resolveRoute } from "../../application/route-resolver.js";
 import { signedHeaders } from "../../infrastructure/security/service-auth.js";
+import { MetricsRegistry } from "../../infrastructure/observability/metrics.js";
+import { Telemetry } from "../../infrastructure/observability/telemetry.js";
 
 const retryStatuses = new Set([502, 503, 504]);
 const publicIdentityRoutes = new Set([
@@ -74,20 +76,28 @@ function wait(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-async function forward(request, route, body, id, config, breaker) {
+async function forward(request, route, body, id, config, breaker, telemetry, metrics, parentSpan) {
   if (!breaker.canRequest(route.service)) {
+    metrics.recordCircuitOpen(route.service);
     return { gatewayError: 503, code: "CIRCUIT_OPEN", message: "El servicio está temporalmente aislado." };
   }
   const method = request.method || "GET";
   const maxAttempts = ["GET", "HEAD"].includes(method) ? config.retries + 1 : 1;
   let lastError;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const span = telemetry.child(`HTTP ${method} ${route.service}`, parentSpan, {
+      "server.address": route.service,
+      "http.request.method": method,
+      "http.route": route.upstreamPath.split("?")[0],
+      "retry.attempt": attempt,
+    });
     const headers = new Headers({
       accept: request.headers.accept || "application/json",
       "x-correlation-id": id,
       "x-request-id": id,
       "x-forwarded-for": clientIp(request),
       ...signedHeaders(config.serviceKey, method, route.upstreamPath),
+      traceparent: telemetry.traceparent(span),
     });
     if (request.headers.authorization) headers.set("authorization", request.headers.authorization);
     if (request.headers["content-type"]) headers.set("content-type", request.headers["content-type"]);
@@ -98,7 +108,9 @@ async function forward(request, route, body, id, config, breaker) {
         body,
         signal: AbortSignal.timeout(config.timeoutMs),
       });
+      telemetry.endSpan(span, upstream.status, { "http.response.status_code": upstream.status });
       if (retryStatuses.has(upstream.status) && attempt < maxAttempts) {
+        metrics.recordUpstreamFailure(route.service, `http_${upstream.status}`);
         await upstream.arrayBuffer();
         await wait(50 * attempt);
         continue;
@@ -107,7 +119,9 @@ async function forward(request, route, body, id, config, breaker) {
       else breaker.success(route.service);
       return { upstream, attempts: attempt };
     } catch (error) {
+      telemetry.endSpan(span, 503, { "error.type": error?.name || "Error" });
       lastError = error;
+      metrics.recordUpstreamFailure(route.service, error?.name === "TimeoutError" ? "timeout" : "network");
       if (attempt < maxAttempts) {
         await wait(50 * attempt);
         continue;
@@ -131,12 +145,18 @@ async function readiness(config) {
   return checks.filter((result) => result.status === "fulfilled").length;
 }
 
-export function createServer(config, verifier, limiter, breaker) {
+export function createServer(config, verifier, limiter, breaker, observability = {}) {
+  const metrics = observability.metrics || new MetricsRegistry();
+  const telemetry = observability.telemetry || new Telemetry();
   return http.createServer(async (request, response) => {
     const startedAt = Date.now();
     const id = correlationId(request);
     const method = request.method || "GET";
     const url = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
+    const rootSpan = telemetry.startSpan(`${method} ${url.pathname}`, request.headers.traceparent, {
+      "http.request.method": method,
+      "url.path": url.pathname,
+    });
     const corsPolicy = cors(request, config.allowedOrigins);
     let service = "gateway";
     let attempts = 0;
@@ -145,6 +165,14 @@ export function createServer(config, verifier, limiter, breaker) {
       if (method === "OPTIONS") return send(response, 204, undefined, id, corsPolicy.headers);
       if (method === "GET" && ["/health", "/health/live"].includes(url.pathname)) {
         return send(response, 200, { status: "ok", service: "api-gateway" }, id, corsPolicy.headers);
+      }
+      if (method === "GET" && url.pathname === "/metrics") {
+        response.writeHead(200, {
+          "content-type": "text/plain; version=0.0.4; charset=utf-8",
+          "x-correlation-id": id,
+          traceparent: telemetry.traceparent(rootSpan),
+        });
+        return response.end(metrics.render());
       }
       if (method === "GET" && url.pathname === "/health/ready") {
         const ready = await readiness(config);
@@ -182,7 +210,7 @@ export function createServer(config, verifier, limiter, breaker) {
           return send(response, 403, { error: "No tienes permisos para esta operación.", code: "FORBIDDEN" }, id, corsPolicy.headers);
         }
       }
-      const result = await forward(request, route, body, id, config, breaker);
+      const result = await forward(request, route, body, id, config, breaker, telemetry, metrics, rootSpan);
       if (result.gatewayError) {
         return send(response, result.gatewayError, { error: result.message, code: result.code }, id, corsPolicy.headers);
       }
@@ -194,6 +222,7 @@ export function createServer(config, verifier, limiter, breaker) {
         "x-request-id": id,
         "x-gateway-attempts": String(result.attempts),
         "x-content-type-options": "nosniff",
+        traceparent: telemetry.traceparent(rootSpan),
       };
       for (const name of ["content-type", "content-disposition", "x-content-sha256", "location", "retry-after"]) {
         const value = result.upstream.headers.get(name);
@@ -208,7 +237,24 @@ export function createServer(config, verifier, limiter, breaker) {
         code: status === 413 ? "PAYLOAD_TOO_LARGE" : "GATEWAY_ERROR",
       }, id, corsPolicy.headers);
     } finally {
-      console.log(JSON.stringify({ correlationId: id, method, path: url.pathname, service, attempts, ms: Date.now() - startedAt }));
+      const durationMs = Date.now() - startedAt;
+      if (url.pathname !== "/metrics") metrics.observeRequest(method, service, response.statusCode, durationMs / 1000);
+      telemetry.endSpan(rootSpan, response.statusCode, {
+        "http.response.status_code": response.statusCode,
+        "nutrimejor.service": service,
+      });
+      console.log(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        level: response.statusCode >= 500 ? "error" : "info",
+        traceId: rootSpan.traceId,
+        correlationId: id,
+        method,
+        path: url.pathname,
+        service,
+        status: response.statusCode,
+        attempts,
+        ms: durationMs,
+      }));
     }
   });
 }

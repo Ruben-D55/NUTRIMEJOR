@@ -30,6 +30,7 @@ export const config = {
   retries: integer(process.env.GATEWAY_RETRIES, 2, 0, 4),
   circuitFailures: integer(process.env.CIRCUIT_FAILURE_THRESHOLD, 5, 1, 20),
   circuitOpenMs: integer(process.env.CIRCUIT_OPEN_MS, 30000, 1000, 300000),
+  otelEndpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || "",
 };
 
 if (config.serviceKey.length < 32) throw new Error("SERVICE_API_KEY debe tener al menos 32 caracteres.");

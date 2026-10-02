@@ -27,6 +27,7 @@
     "verify": "npm run typecheck && npm run test:services",
     "validate:openapi": "python scripts/validate-openapi.py",
     "verify:architecture": "python scripts/verify-architecture.py",
+    "verify:observability": "python scripts/verify-observability.py",
     "smoke:health-load": "node scripts/smoke-health-load.mjs",
     "test:integration:postgres": "node --test tests/integration/postgres-service-databases.mjs",
     "test:e2e": "playwright test",
