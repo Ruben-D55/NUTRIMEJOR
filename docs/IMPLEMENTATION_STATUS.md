@@ -80,3 +80,12 @@ formularios dedicados.
 - Auditoría de accesos de identidad y de lecturas/modificaciones clínicas.
 - Expiración configurable, revocación, rotación y detección de reutilización de sesiones.
 - Auditoría de dependencias, Trivy y CodeQL en GitHub Actions.
+
+# Fase 4: API Gateway
+
+- Punto de entrada único en el puerto 4080 para las doce APIs internas.
+- Rutas públicas versionadas bajo `/api/v1/{modulo}`.
+- Autenticación, autorización por rol, CORS y límites de solicitudes centralizados.
+- Reintentos de lecturas, tiempos máximos y circuit breaker por servicio.
+- Identificadores de correlación propagados de extremo a extremo.
+- Frontends, Playwright y pruebas de humo conectados exclusivamente al gateway.

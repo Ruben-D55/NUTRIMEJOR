@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Nutrimejor.Web.Models;
@@ -9,14 +8,14 @@ namespace Nutrimejor.Web.Services;
 
 public sealed class PlatformApiClient(HttpClient http, IConfiguration configuration, IHttpContextAccessor contextAccessor)
 {
-    private readonly string _serviceKey = configuration["ServiceApiKey"] ?? "";
-
     public async Task<ApiResponse> SendAsync(string service, string path, HttpMethod method, string? json = null, bool authenticated = true)
     {
-        var baseUrl = configuration[$"Services:{service}"] ?? throw new InvalidOperationException($"Servicio desconocido: {service}");
+        var baseUrl = configuration["GatewayBaseUrl"] ?? "http://localhost:4080";
         var relativePath = $"/{path.TrimStart('/')}";
-        using var request = new HttpRequestMessage(method, $"{baseUrl.TrimEnd('/')}{relativePath}");
-        AddServiceProof(request, method.Method, relativePath);
+        using var request = new HttpRequestMessage(method, $"{baseUrl.TrimEnd('/')}{GatewayPath(service, relativePath)}");
+        var correlationId = contextAccessor.HttpContext?.Request.Headers["x-correlation-id"].FirstOrDefault()
+            ?? contextAccessor.HttpContext?.TraceIdentifier ?? Guid.NewGuid().ToString();
+        request.Headers.Add("x-correlation-id", correlationId);
         if (authenticated)
         {
             var token = contextAccessor.HttpContext?.Session.GetString("AccessToken");
@@ -37,17 +36,20 @@ public sealed class PlatformApiClient(HttpClient http, IConfiguration configurat
         }
     }
 
-    private void AddServiceProof(HttpRequestMessage request, string method, string path)
+    private static string GatewayPath(string service, string path)
     {
-        if (_serviceKey.Length < 32) throw new InvalidOperationException("ServiceApiKey debe tener al menos 32 caracteres.");
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-        var nonce = Guid.NewGuid().ToString();
-        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_serviceKey));
-        var signature = Convert.ToHexString(hmac.ComputeHash(
-            Encoding.UTF8.GetBytes($"{timestamp}.{nonce}.{method.ToUpperInvariant()}.{path}"))).ToLowerInvariant();
-        request.Headers.Add("x-service-timestamp", timestamp);
-        request.Headers.Add("x-service-nonce", nonce);
-        request.Headers.Add("x-service-signature", signature);
+        if (path == "/health/ready") return $"/api/v1/{service}/_health/ready";
+        var queryIndex = path.IndexOf('?');
+        var query = queryIndex >= 0 ? path[queryIndex..] : "";
+        var pathname = queryIndex >= 0 ? path[..queryIndex] : path;
+        var normalized = pathname.StartsWith("/v1", StringComparison.OrdinalIgnoreCase) ? pathname[3..] : pathname;
+        if ((service is "patients" or "catalogs")
+            && (normalized.Equals($"/{service}", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith($"/{service}/", StringComparison.OrdinalIgnoreCase)))
+        {
+            normalized = normalized[(service.Length + 1)..];
+        }
+        return $"/api/v1/{service}{normalized}{query}";
     }
 
     public async Task<ServiceStatus> HealthAsync(ModuleDefinition module)

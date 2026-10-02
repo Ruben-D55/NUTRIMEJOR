@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
-import { signedServiceHeaders } from "./service-auth.mjs";
+import { gatewayUrl } from "./gateway-url.mjs";
 
 process.loadEnvFile?.();
-const serviceKey = process.env.SERVICE_API_KEY;
 
 async function request(url, { token, method = "GET", body, expectedStatus } = {}) {
+  url = gatewayUrl(url);
   const response = await fetch(url, {
     method,
     headers: {
-      ...signedServiceHeaders(serviceKey, method, url),
       ...(token ? { authorization: `Bearer ${token}` } : {}),
       ...(body ? { "content-type": "application/json" } : {}),
     },
