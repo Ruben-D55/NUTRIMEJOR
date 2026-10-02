@@ -1,8 +1,11 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { createHmac, randomUUID } from "node:crypto";
 
-const serviceKey = process.env.SERVICE_API_KEY;
-if (!serviceKey || serviceKey.length < 32) throw new Error("SERVICE_API_KEY is required for E2E tests");
+const configuredServiceKey = process.env.SERVICE_API_KEY;
+if (!configuredServiceKey || configuredServiceKey.length < 32) {
+  throw new Error("SERVICE_API_KEY is required for E2E tests");
+}
+const serviceKey: string = configuredServiceKey;
 const password = "Password123!";
 
 async function service<T>(

@@ -130,8 +130,9 @@ jobs:
         with:
           fail-on-severity: high
       - name: Scan source, dependencies and Docker configuration
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
+          version: v0.69.3
           scan-type: fs
           scan-ref: .
           scanners: vuln,secret,misconfig
@@ -142,7 +143,10 @@ jobs:
         run: npm run setup:env
       - name: Build application containers
         run: docker compose --profile full build
-      - uses: aquasecurity/setup-trivy@v0.2.4
+      - uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+        with:
+          version: v0.69.3
+          cache: true
       - name: Scan every application container
         shell: bash
         run: |
