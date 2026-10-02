@@ -1,0 +1,57 @@
+openapi: 3.1.0
+info:
+  title: NUTRIMEJOR API Gateway
+  version: 1.0.0
+  description: Punto de entrada versionado para las doce APIs de la plataforma.
+servers:
+  - url: http://localhost:4080
+paths:
+  /api/v1/{service}:
+    parameters:
+      - $ref: '#/components/parameters/Service'
+    get:
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Respuesta del servicio de dominio }
+        '401': { description: Token ausente o inválido }
+        '403': { description: Rol o alcance insuficiente }
+        '429': { description: Límite de solicitudes excedido }
+    post:
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Respuesta del servicio de dominio }
+        '201': { description: Recurso creado }
+  /api/v1/{service}/{path}:
+    parameters:
+      - $ref: '#/components/parameters/Service'
+      - in: path
+        name: path
+        required: true
+        schema: { type: string }
+    get:
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Respuesta del servicio de dominio }
+        '401': { description: Token ausente o inválido }
+        '403': { description: Rol o alcance insuficiente }
+        '429': { description: Límite de solicitudes excedido }
+        '502': { description: Servicio no disponible }
+        '503': { description: Circuito abierto }
+        '504': { description: Tiempo de espera agotado }
+    post:
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Respuesta del servicio de dominio }
+        '201': { description: Recurso creado }
+        '202': { description: Operación aceptada }
+components:
+  parameters:
+    Service:
+      in: path
+      name: service
+      required: true
+      schema:
+        type: string
+        enum: [identity, patients, catalogs, subscriptions, clinical, measurements, nutrition, planning, scheduling, notifications, documents, reporting]
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }

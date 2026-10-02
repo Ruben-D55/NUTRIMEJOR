@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const servicesRoot = new URL("../services/", import.meta.url);
 const services = (await readdir(servicesRoot, { withFileTypes: true }))
-  .filter((entry) => entry.isDirectory() && entry.name.endsWith("-api"))
+  .filter((entry) => entry.isDirectory() && (entry.name.endsWith("-api") || entry.name === "api-gateway"))
   .map((entry) => entry.name)
   .sort();
 

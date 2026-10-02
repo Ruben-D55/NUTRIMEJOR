@@ -1,12 +1,24 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { createHmac, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
-const configuredServiceKey = process.env.SERVICE_API_KEY;
-if (!configuredServiceKey || configuredServiceKey.length < 32) {
-  throw new Error("SERVICE_API_KEY is required for E2E tests");
-}
-const serviceKey: string = configuredServiceKey;
 const password = "Password123!";
+const services = new Map([
+  [4001, "identity"], [4002, "patients"], [4003, "catalogs"], [4004, "subscriptions"],
+  [4005, "clinical"], [4006, "measurements"], [4007, "nutrition"], [4008, "planning"],
+  [4009, "scheduling"], [4010, "notifications"], [4011, "documents"], [4012, "reporting"],
+]);
+
+function gatewayPath(port: number, upstreamPath: string) {
+  const service = services.get(port);
+  if (!service) throw new Error(`Unknown service port ${port}`);
+  const url = new URL(upstreamPath, "http://internal");
+  let path = url.pathname.replace(/^\/v1/, "") || "/";
+  if (["patients", "catalogs"].includes(service)
+      && (path === `/${service}` || path.startsWith(`/${service}/`))) {
+    path = path.slice(service.length + 1) || "";
+  }
+  return `/api/v1/${service}${path}${url.search}`;
+}
 
 async function service<T>(
   request: APIRequestContext,
@@ -15,17 +27,10 @@ async function service<T>(
   options: { method?: string; token?: string; data?: unknown; status?: number } = {},
 ) {
   const method = options.method || "GET";
-  const timestamp = Math.floor(Date.now() / 1000).toString();
-  const nonce = randomUUID();
-  const signature = createHmac("sha256", serviceKey)
-    .update(`${timestamp}.${nonce}.${method}.${path}`)
-    .digest("hex");
-  const response = await request.fetch(`http://127.0.0.1:${port}${path}`, {
+  const response = await request.fetch(`http://127.0.0.1:4080${gatewayPath(port, path)}`, {
     method,
     headers: {
-      "x-service-timestamp": timestamp,
-      "x-service-nonce": nonce,
-      "x-service-signature": signature,
+      "x-correlation-id": randomUUID(),
       ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
     },
     data: options.data,

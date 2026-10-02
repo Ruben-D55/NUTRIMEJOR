@@ -1,0 +1,14 @@
+{
+  "name": "@nutrimejor/api-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test",
+    "check": "node --check src/index.js"
+  },
+  "dependencies": {
+    "jose": "6.2.9"
+  }
+}

@@ -69,10 +69,9 @@ def main() -> int:
         if database in databases:
             fail(errors, f"{name}: DB_NAME duplicado {database}")
         databases.add(database)
-        published_port = f"127.0.0.1:{port}:{port}"
         ports = [str(value) for value in api.get("ports", [])]
-        if published_port not in ports:
-            fail(errors, f"{name}: falta puerto local {published_port}")
+        if ports:
+            fail(errors, f"{name}: no debe publicar puertos; el acceso externo pasa por api-gateway")
 
         domain = root / "src" / "domain"
         for file in source_files(domain):
@@ -91,6 +90,19 @@ def main() -> int:
             for foreign in foreign_databases:
                 if foreign in text:
                     fail(errors, f"{file.relative_to(ROOT)}: referencia base ajena {foreign}")
+
+    gateway = compose_services.get("api-gateway", {})
+    for relative in ("Dockerfile", "package.json", "openapi.yaml", "src/application", "src/infrastructure", "src/interfaces/http"):
+        if not (ROOT / "services" / "api-gateway" / relative).exists():
+            fail(errors, f"api-gateway: falta {relative}")
+    if "127.0.0.1:4080:4080" not in [str(value) for value in gateway.get("ports", [])]:
+        fail(errors, "api-gateway: falta el único puerto de APIs 127.0.0.1:4080:4080")
+    gateway_environment = gateway.get("environment", {})
+    for name, (port, _) in SERVICES.items():
+        variable = name.removesuffix("-api").upper() + "_API_URL"
+        expected = f"http://{name}:{port}"
+        if gateway_environment.get(variable) != expected:
+            fail(errors, f"api-gateway: {variable} esperado {expected}")
 
     contract = yaml.safe_load((ROOT / "contracts" / "events.asyncapi.yaml").read_text(encoding="utf-8"))
     if contract.get("asyncapi") != "3.0.0":
@@ -111,7 +123,7 @@ def main() -> int:
         return 1
     print(
         f"Architecture verified: {len(SERVICES)} services, "
-        f"{len(databases)} databases, {len(contracted)} event types."
+        f"{len(databases)} databases, one API gateway, {len(contracted)} event types."
     )
     return 0
 

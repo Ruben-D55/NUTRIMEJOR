@@ -1,4 +1,5 @@
 import { performance } from "node:perf_hooks";
+import { gatewayUrl } from "./gateway-url.mjs";
 
 const base = process.env.API_HOST ?? "127.0.0.1";
 const concurrency = Number(process.env.CONCURRENCY ?? 12);
@@ -17,7 +18,7 @@ async function worker() {
     const job = jobs[cursor++];
     const started = performance.now();
     try {
-      const response = await fetch(`http://${base}:${job.port}/health`, { signal: AbortSignal.timeout(5000) });
+      const response = await fetch(gatewayUrl(`http://${base}:${job.port}/health/ready`), { signal: AbortSignal.timeout(5000) });
       results.push({ port: job.port, ok: response.ok, status: response.status, ms: performance.now() - started });
     } catch (error) {
       results.push({ port: job.port, ok: false, status: 0, ms: performance.now() - started, error: error.message });

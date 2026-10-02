@@ -5,6 +5,8 @@ Next.js 16 de transición y servicios independientes.
 
 ## Arquitectura
 
+- `api-gateway`: punto de entrada único, autenticación, permisos, CORS, límites,
+  resiliencia y trazabilidad para las doce APIs.
 - `web` (raíz): interfaz y Backend for Frontend. El navegador solo consume `/api/*`.
 - `frontend-razor/Nutrimejor.Web`: interfaz ejecutiva Razor, Bootstrap y JavaScript.
 - `identity-api`: cuentas, sesiones, organizaciones, miembros y auditoría.
@@ -24,7 +26,8 @@ Cada API aplica arquitectura limpia: `domain`, `application`, `infrastructure` e
 `interfaces/http`. Cada servicio posee su base de datos SQL Server y no accede a tablas
 de otro servicio. La comunicación se realiza por HTTP.
 
-Consulta [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para la arquitectura completa y
+Consulta [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para la arquitectura completa,
+[docs/API_GATEWAY.md](docs/API_GATEWAY.md) para las rutas y políticas del gateway, y
 [docs/IMPLEMENTATION_ROADMAP.md](docs/IMPLEMENTATION_ROADMAP.md) para implementarla fase
 por fase. El avance comprobado y el trabajo pendiente están en
 [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
@@ -51,18 +54,7 @@ Puertos locales:
 | --- | ---: |
 | Web/BFF | 3000 |
 | Frontend Razor | 5050 |
-| Identidad API | 4001 |
-| Pacientes API | 4002 |
-| Catálogos API | 4003 |
-| Membresías API | 4004 |
-| Clínica API | 4005 |
-| Mediciones API | 4006 |
-| Evaluación nutricional API | 4007 |
-| Planificación API | 4008 |
-| Agenda API | 4009 |
-| Notificaciones API | 4010 |
-| Documentos API | 4011 |
-| Reportes API | 4012 |
+| API Gateway (12 módulos) | 4080 |
 | Identidad SQL | 14331 |
 | Pacientes SQL | 14332 |
 | Catálogos SQL | 14333 |
@@ -79,7 +71,8 @@ npm install
 npm run dev
 ```
 
-Las URLs internas se configuran mediante `.env.local`, usando `.env.example` como base.
+La URL única del gateway se configura mediante `.env.local`, usando `.env.example`
+como base. Las APIs de dominio no publican puertos en el host.
 
 ## Verificación
 

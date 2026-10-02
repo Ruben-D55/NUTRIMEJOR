@@ -112,8 +112,6 @@ services:
       RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
     volumes:
       - identity_keys:/data
-    ports:
-      - "127.0.0.1:4001:4001"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
@@ -144,8 +142,6 @@ services:
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:?Ejecuta npm run setup:env}@rabbitmq:5672
       SERVICE_API_KEY: ${SERVICE_API_KEY:?Ejecuta npm run setup:env}
       RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
-    ports:
-      - "127.0.0.1:4002:4002"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4002/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
@@ -173,8 +169,6 @@ services:
       IDENTITY_TIMEOUT_MS: 3000
       SERVICE_API_KEY: ${SERVICE_API_KEY:?Ejecuta npm run setup:env}
       RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
-    ports:
-      - "127.0.0.1:4003:4003"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4003/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
@@ -204,8 +198,6 @@ services:
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:?Ejecuta npm run setup:env}@rabbitmq:5672
       DB_NAME: NutrimejorSubscriptions
       RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
-    ports:
-      - "127.0.0.1:4004:4004"
 
   clinical-api:
     <<: *api-common
@@ -217,8 +209,6 @@ services:
     environment:
       <<: *platform-api-environment
       DB_NAME: NutrimejorClinical
-    ports:
-      - "127.0.0.1:4005:4005"
 
   measurements-api:
     <<: *api-common
@@ -232,8 +222,6 @@ services:
       <<: *platform-api-environment
       DB_NAME: NutrimejorMeasurements
       SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
-    ports:
-      - "127.0.0.1:4006:4006"
 
   nutrition-api:
     <<: *api-common
@@ -249,8 +237,6 @@ services:
       DB_NAME: NutrimejorNutrition
       CATALOGS_API_URL: http://catalogs-api:4003
       SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
-    ports:
-      - "127.0.0.1:4007:4007"
 
   planning-api:
     <<: *api-common
@@ -266,8 +252,6 @@ services:
       DB_NAME: NutrimejorPlanning
       CATALOGS_API_URL: http://catalogs-api:4003
       SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
-    ports:
-      - "127.0.0.1:4008:4008"
 
   scheduling-api:
     <<: *api-common
@@ -281,8 +265,6 @@ services:
       <<: *platform-api-environment
       DB_NAME: NutrimejorScheduling
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:?Ejecuta npm run setup:env}@rabbitmq:5672
-    ports:
-      - "127.0.0.1:4009:4009"
 
   notifications-api:
     <<: *api-common
@@ -298,8 +280,6 @@ services:
       DB_NAME: NutrimejorNotifications
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:?Ejecuta npm run setup:env}@rabbitmq:5672
       SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
-    ports:
-      - "127.0.0.1:4010:4010"
 
   documents-api:
     <<: *api-common
@@ -314,8 +294,6 @@ services:
       DB_NAME: NutrimejorDocuments
       OBJECT_STORAGE_PATH: /data/documents
       SUBSCRIPTIONS_API_URL: http://subscriptions-api:4004
-    ports:
-      - "127.0.0.1:4011:4011"
     volumes:
       - documents_data:/data/documents
 
@@ -331,21 +309,24 @@ services:
       <<: *platform-api-environment
       DB_NAME: NutrimejorReporting
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-nutrimejor}:${RABBITMQ_PASSWORD:?Ejecuta npm run setup:env}@rabbitmq:5672
-    ports:
-      - "127.0.0.1:4012:4012"
 
-  web:
-    build: .
+  api-gateway:
+    build: ./services/api-gateway
     restart: unless-stopped
     depends_on:
-      identity-api:
-        condition: service_healthy
-      patients-api:
-        condition: service_healthy
-      catalogs-api:
-        condition: service_healthy
+      identity-api: { condition: service_healthy }
+      patients-api: { condition: service_healthy }
+      catalogs-api: { condition: service_healthy }
     environment:
-      NODE_ENV: production
+      PORT: 4080
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?Ejecuta npm run setup:env}
+      JWT_ISSUER: ${JWT_ISSUER:-nutrimejor-identity}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-nutrimejor-services}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5050}
+      GATEWAY_TIMEOUT_MS: ${GATEWAY_TIMEOUT_MS:-5000}
+      GATEWAY_RETRIES: ${GATEWAY_RETRIES:-2}
+      CIRCUIT_FAILURE_THRESHOLD: ${CIRCUIT_FAILURE_THRESHOLD:-5}
+      CIRCUIT_OPEN_MS: ${CIRCUIT_OPEN_MS:-30000}
       IDENTITY_API_URL: http://identity-api:4001
       PATIENTS_API_URL: http://patients-api:4002
       CATALOGS_API_URL: http://catalogs-api:4003
@@ -358,8 +339,25 @@ services:
       NOTIFICATIONS_API_URL: http://notifications-api:4010
       DOCUMENTS_API_URL: http://documents-api:4011
       REPORTING_API_URL: http://reporting-api:4012
-      SERVICE_API_KEY: ${SERVICE_API_KEY:?Ejecuta npm run setup:env}
-      SERVICE_TIMEOUT_MS: 5000
+    ports:
+      - "127.0.0.1:4080:4080"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      api-gateway: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      GATEWAY_API_URL: http://api-gateway:4080
+      GATEWAY_TIMEOUT_MS: ${GATEWAY_TIMEOUT_MS:-5000}
+      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-10}
+      REFRESH_TOKEN_DAYS: ${REFRESH_TOKEN_DAYS:-7}
     ports:
       - "3000:3000"
 
@@ -368,26 +366,11 @@ services:
     build: ./frontend-razor/Nutrimejor.Web
     restart: unless-stopped
     depends_on:
-      identity-api: { condition: service_healthy }
-      patients-api: { condition: service_healthy }
-      catalogs-api: { condition: service_healthy }
-      reporting-api: { condition: service_healthy }
+      api-gateway: { condition: service_healthy }
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ServiceApiKey: ${SERVICE_API_KEY:?Ejecuta npm run setup:env}
-      Services__identity: http://identity-api:4001
-      Services__patients: http://patients-api:4002
-      Services__catalogs: http://catalogs-api:4003
-      Services__subscriptions: http://subscriptions-api:4004
-      Services__clinical: http://clinical-api:4005
-      Services__measurements: http://measurements-api:4006
-      Services__nutrition: http://nutrition-api:4007
-      Services__planning: http://planning-api:4008
-      Services__scheduling: http://scheduling-api:4009
-      Services__notifications: http://notifications-api:4010
-      Services__documents: http://documents-api:4011
-      Services__reporting: http://reporting-api:4012
+      GatewayBaseUrl: http://api-gateway:4080
     ports:
       - "5050:8080"
 
