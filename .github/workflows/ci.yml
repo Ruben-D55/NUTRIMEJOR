@@ -25,6 +25,7 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - run: npm ci
+      - run: npm run setup:env
       - run: npm audit --omit=dev --audit-level=high
       - run: pip install openapi-spec-validator==0.7.2 PyYAML==6.0.2
       - run: npm run typecheck
@@ -47,6 +48,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Generate PostgreSQL integration secret
+        run: echo "POSTGRES_INTEGRATION_PASSWORD=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
       - name: Start real PostgreSQL integration database
         run: docker compose -f tests/integration/docker-compose.postgres.yml up -d --wait --wait-timeout 120
       - name: Verify the twelve isolated service databases
@@ -70,6 +73,8 @@ jobs:
       - run: npm ci
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+      - name: Create ephemeral CI secrets
+        run: npm run setup:env
       - name: Start the complete application
         run: docker compose --profile full up -d --build --wait --wait-timeout 420
       - name: Wait for the web application
@@ -83,7 +88,11 @@ jobs:
           docker compose --profile full logs --no-color --tail 100 web
           exit 1
       - name: Run browser journeys
-        run: npm run test:e2e
+        run: |
+          set -a
+          source .env
+          set +a
+          npm run test:e2e
         env:
           CI: true
           E2E_BASE_URL: http://127.0.0.1:3000
@@ -102,3 +111,75 @@ jobs:
       - name: Stop the complete application
         if: always()
         run: docker compose --profile full down -v
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Review dependency changes
+        if: github.event_name == 'pull_request'
+        # GitHub omite esta API cuando el repositorio no expone Dependency Graph.
+        # npm audit y Trivy continúan siendo controles obligatorios.
+        continue-on-error: true
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+      - name: Scan source, dependencies and Docker configuration
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          version: v0.69.3
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Create ephemeral CI secrets
+        run: npm run setup:env
+      - name: Build application containers
+        run: docker compose --profile full build
+      - uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+        with:
+          version: v0.69.3
+          cache: true
+      - name: Scan every application container
+        shell: bash
+        run: |
+          mapfile -t images < <(docker image ls --format '{{.Repository}}:{{.Tag}}' | grep '^nutrimejor-' | sort -u)
+          test ${#images[@]} -gt 0
+          failed=0
+          for image in "${images[@]}"; do
+            trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed "$image" || failed=1
+          done
+          exit "$failed"
+
+  codeql:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript,csharp
+      - run: npm ci
+      - run: npm run build
+      - run: dotnet build frontend-razor/Nutrimejor.Web/Nutrimejor.Web.csproj --configuration Release
+      - uses: github/codeql-action/analyze@v3

@@ -1,4 +1,5 @@
 import { DomainError, unavailable } from "../../domain/errors.js";
+import { signedServiceHeaders } from "../security/service-auth.js";
 
 export class EntitlementClient {
   constructor(config) {
@@ -8,17 +9,17 @@ export class EntitlementClient {
   }
 
   async consume(organizationId, featureCode, amount = 1, requestId = crypto.randomUUID()) {
+    const path = `/v1/internal/organizations/${encodeURIComponent(organizationId)}/consume`;
     let response;
     try {
       response = await fetch(
-        `${this.baseUrl}/v1/internal/organizations/${encodeURIComponent(organizationId)}/consume`,
+        `${this.baseUrl}${path}`,
         {
           method: "POST",
-          headers: {
-            "x-service-key": this.serviceKey,
+          headers: signedServiceHeaders(this.serviceKey, "POST", path, {
             "x-request-id": requestId,
             "content-type": "application/json",
-          },
+          }),
           body: JSON.stringify({ featureCode, amount }),
           signal: AbortSignal.timeout(this.timeoutMs),
         },
@@ -34,12 +35,13 @@ export class EntitlementClient {
   }
 
   async assert(organizationId, featureCode, requestId = crypto.randomUUID()) {
+    const path = `/v1/internal/organizations/${encodeURIComponent(organizationId)}/entitlements`;
     let response;
     try {
       response = await fetch(
-        `${this.baseUrl}/v1/internal/organizations/${encodeURIComponent(organizationId)}/entitlements`,
+        `${this.baseUrl}${path}`,
         {
-          headers: { "x-service-key": this.serviceKey, "x-request-id": requestId },
+          headers: signedServiceHeaders(this.serviceKey, "GET", path, { "x-request-id": requestId }),
           signal: AbortSignal.timeout(this.timeoutMs),
         },
       );

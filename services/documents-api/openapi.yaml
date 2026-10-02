@@ -3,13 +3,20 @@ info:
   title: Nutrimejor Documents API
   version: 1.1.0
   description: Plantillas y generación asíncrona de PDF con hash y enlaces temporales.
+security:
+  - bearerAuth: []
+    serviceTimestamp: []
+    serviceNonce: []
+    serviceSignature: []
 paths:
   /health/live:
     get:
+      security: []
       responses:
         '200': { description: Proceso activo }
   /health/ready:
     get:
+      security: []
       responses:
         '200': { description: Servicio listo }
   /v1/documents:
@@ -102,3 +109,9 @@ paths:
           content:
             application/pdf: {}
         '404': { description: Token inválido o vencido }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    serviceTimestamp: { type: apiKey, in: header, name: x-service-timestamp }
+    serviceNonce: { type: apiKey, in: header, name: x-service-nonce }
+    serviceSignature: { type: apiKey, in: header, name: x-service-signature }

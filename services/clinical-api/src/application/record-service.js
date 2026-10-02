@@ -13,8 +13,45 @@ import {
 } from "../domain/record.js";
 import { conflict, forbidden, notFound } from "../domain/errors.js";
 
-function assertClinicalAccess(actor) {
+function assertClinicalAccess(actor, patientId = null, write = false) {
   if (actor.organizationRole === "ASSISTANT") throw forbidden();
+  if (actor.organizationRole === "PATIENT"
+    && (write || !patientId || !actor.patientId || actor.patientId.toLowerCase() !== String(patientId).toLowerCase())) {
+    throw forbidden();
+  }
+}
+
+function auditedRepository(repository) {
+  if (!repository.auditAccess) return repository;
+  const reads = new Set(["list", "get", "versions", "clinicalRecord", "timeline", "listEntries", "listDiagnoses", "listGoals", "listFollowUps"]);
+  return new Proxy(repository, {
+    get(target, property, receiver) {
+      const original = Reflect.get(target, property, receiver);
+      if (typeof original !== "function" || property === "auditAccess") return original;
+      return async (...args) => {
+        const actor = args[0];
+        try {
+          const result = await original.apply(target, args);
+          const sample = Array.isArray(result) ? result[0] : result;
+          await target.auditAccess(actor, {
+            action: `${reads.has(String(property)) ? "read" : "write"}.${String(property)}`,
+            entityType: "clinical_record",
+            entityId: sample?.id || args[1] || null,
+            patientId: sample?.patientId || (String(property).includes("clinical") || String(property).includes("timeline") || String(property).includes("Entries") ? args[1] : null),
+            success: true,
+          }).catch(() => undefined);
+          return result;
+        } catch (error) {
+          await target.auditAccess(actor, {
+            action: `${reads.has(String(property)) ? "read" : "write"}.${String(property)}`,
+            entityType: "clinical_record", entityId: args[1] || null, patientId: null,
+            success: false, details: { code: error?.code || "ERROR" },
+          }).catch(() => undefined);
+          throw error;
+        }
+      };
+    },
+  });
 }
 
 function requireResult(result) {
@@ -34,26 +71,32 @@ function requireResult(result) {
 
 export class RecordService {
   constructor(repository) {
-    this.repository = repository;
+    this.repository = auditedRepository(repository);
   }
 
   list(actor, patientId) {
-    assertClinicalAccess(actor);
-    return this.repository.list(actor, patientId ? recordId.parse(patientId) : null);
+    const parsed = patientId ? recordId.parse(patientId) : null;
+    assertClinicalAccess(actor, parsed);
+    return this.repository.list(actor, parsed);
   }
 
   async get(actor, id) {
+    if (actor.organizationRole === "PATIENT") {
+      const result = requireResult(await this.repository.get(actor, recordId.parse(id)));
+      assertClinicalAccess(actor, result.patientId);
+      return result;
+    }
     assertClinicalAccess(actor);
     return requireResult(await this.repository.get(actor, recordId.parse(id)));
   }
 
   create(actor, input) {
-    assertClinicalAccess(actor);
+    assertClinicalAccess(actor, null, true);
     return this.repository.create(actor, recordInput.parse(input));
   }
 
   async update(actor, id, input) {
-    assertClinicalAccess(actor);
+    assertClinicalAccess(actor, null, true);
     return requireResult(await this.repository.update(
       actor,
       recordId.parse(id),
@@ -62,7 +105,7 @@ export class RecordService {
   }
 
   async publish(actor, id, input) {
-    assertClinicalAccess(actor);
+    assertClinicalAccess(actor, null, true);
     return requireResult(await this.repository.publish(
       actor,
       recordId.parse(id),
@@ -71,7 +114,7 @@ export class RecordService {
   }
 
   async correct(actor, id, input) {
-    assertClinicalAccess(actor);
+    assertClinicalAccess(actor, null, true);
     return requireResult(await this.repository.correct(
       actor,
       recordId.parse(id),
@@ -85,18 +128,18 @@ export class RecordService {
   }
 
   clinicalRecord(actor, patientId) {
-    assertClinicalAccess(actor);
-    return this.repository.clinicalRecord(actor, recordId.parse(patientId));
+    const parsed=recordId.parse(patientId); assertClinicalAccess(actor, parsed);
+    return this.repository.clinicalRecord(actor, parsed);
   }
 
   timeline(actor, patientId) {
-    assertClinicalAccess(actor);
-    return this.repository.timeline(actor, recordId.parse(patientId));
+    const parsed=recordId.parse(patientId); assertClinicalAccess(actor, parsed);
+    return this.repository.timeline(actor, parsed);
   }
 
   listEntries(actor, patientId, category) {
-    assertClinicalAccess(actor);
-    return this.repository.listEntries(actor, recordId.parse(patientId), category || null);
+    const parsed=recordId.parse(patientId); assertClinicalAccess(actor, parsed);
+    return this.repository.listEntries(actor, parsed, category || null);
   }
 
   createEntry(actor, patientId, input) {

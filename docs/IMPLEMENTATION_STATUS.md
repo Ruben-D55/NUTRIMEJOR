@@ -70,3 +70,13 @@ La web incluye navegación para todos los dominios, indicadores operativos en el
 dashboard y una vista de atención integral por paciente. Las operaciones clínicas
 especializadas continúan disponibles por el BFF versionado mientras se amplían sus
 formularios dedicados.
+
+# Fase 3: seguridad
+
+- Matriz RBAC para administrador, nutricionista, asistente y paciente con alcance por `patientId`.
+- Límites de solicitudes por IP y usuario en el gateway.
+- Firma HMAC, caducidad y protección contra repetición para comunicaciones internas.
+- Secretos locales generados fuera de Docker Compose y puertos internos ligados a localhost.
+- Auditoría de accesos de identidad y de lecturas/modificaciones clínicas.
+- Expiración configurable, revocación, rotación y detección de reutilización de sesiones.
+- Auditoría de dependencias, Trivy y CodeQL en GitHub Actions.

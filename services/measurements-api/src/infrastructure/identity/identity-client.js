@@ -27,6 +27,7 @@ export class IdentityClient {
         role: payload.role,
         organizationId: payload.organizationId,
         organizationRole: payload.organizationRole,
+        patientId: payload.patientId,
       };
     } catch (error) {
       if (error?.status === 401) throw error;

@@ -1,8 +1,10 @@
 import { dashboardDate, recordId, recordInput, statusInput } from "../domain/record.js";
 import { forbidden, notFound } from "../domain/errors.js";
 
-function assertAccess(actor) {
+function assertAccess(actor, patientId = null, write = false) {
   if (actor.organizationRole === "ASSISTANT") throw forbidden();
+  if (actor.organizationRole === "PATIENT"
+    && (write || !patientId || !actor.patientId || actor.patientId.toLowerCase() !== String(patientId).toLowerCase())) throw forbidden();
 }
 
 export class RecordService {
@@ -12,20 +14,20 @@ export class RecordService {
   }
 
   list(actor, patientId) {
-    assertAccess(actor);
     const normalizedPatientId = patientId ? recordId.parse(patientId) : null;
+    assertAccess(actor, normalizedPatientId);
     return this.repository.list(actor, normalizedPatientId);
   }
 
   async get(actor, id) {
-    assertAccess(actor);
     const item = await this.repository.get(actor, recordId.parse(id));
     if (!item) throw notFound();
+    assertAccess(actor, item.patientId);
     return item;
   }
 
   create(actor, input) {
-    assertAccess(actor);
+    assertAccess(actor, null, true);
     return this.repository.create(actor, recordInput.parse(input));
   }
 
@@ -59,8 +61,8 @@ export class RecordService {
   }
 
   patientDashboard(actor, patientId) {
-    assertAccess(actor);
-    return this.projections.patientDashboard(actor, recordId.parse(patientId));
+    const parsed=recordId.parse(patientId); assertAccess(actor, parsed);
+    return this.projections.patientDashboard(actor, parsed);
   }
 
   async rebuild(actor) {

@@ -1,13 +1,18 @@
 [CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)][string]$BackupDirectory,
-  [string]$IdentityPassword = $(if ($env:IDENTITY_DB_PASSWORD) { $env:IDENTITY_DB_PASSWORD } else { "IdentityLocalPassword123!" }),
-  [string]$PatientsPassword = $(if ($env:PATIENTS_DB_PASSWORD) { $env:PATIENTS_DB_PASSWORD } else { "PatientsLocalPassword123!" }),
-  [string]$CatalogsPassword = $(if ($env:CATALOGS_DB_PASSWORD) { $env:CATALOGS_DB_PASSWORD } else { "CatalogsLocalPassword123!" }),
-  [string]$PlatformPassword = $(if ($env:PLATFORM_DB_PASSWORD) { $env:PLATFORM_DB_PASSWORD } else { "PlatformLocalPassword123!" })
+  [string]$IdentityPassword = $env:IDENTITY_DB_PASSWORD,
+  [string]$PatientsPassword = $env:PATIENTS_DB_PASSWORD,
+  [string]$CatalogsPassword = $env:CATALOGS_DB_PASSWORD,
+  [string]$PlatformPassword = $env:PLATFORM_DB_PASSWORD
 )
 
 $ErrorActionPreference = "Stop"
+$requiredPasswords = @($IdentityPassword, $PatientsPassword, $CatalogsPassword, $PlatformPassword)
+if ($requiredPasswords | Where-Object { [string]::IsNullOrWhiteSpace($_) }) {
+  throw "Configura las contraseñas de base de datos mediante variables de entorno."
+}
+
 $repoRoot = [IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
 $backupPath = [IO.Path]::GetFullPath($BackupDirectory)
 $allowedRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot "backups"))

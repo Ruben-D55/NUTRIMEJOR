@@ -3,13 +3,20 @@ info:
   title: Nutrimejor Reporting API
   version: 1.1.0
   description: Snapshots, métricas y líneas de tiempo construidas desde eventos idempotentes.
+security:
+  - bearerAuth: []
+    serviceTimestamp: []
+    serviceNonce: []
+    serviceSignature: []
 paths:
   /health/live:
     get:
+      security: []
       responses:
         '200': { description: Proceso activo }
   /health/ready:
     get:
+      security: []
       responses:
         '200': { description: Servicio listo }
   /v1/report-snapshots:
@@ -81,3 +88,9 @@ paths:
       responses:
         '200': { description: Proyecciones reconstruidas }
         '403': { description: Requiere rol OWNER o ADMIN }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    serviceTimestamp: { type: apiKey, in: header, name: x-service-timestamp }
+    serviceNonce: { type: apiKey, in: header, name: x-service-nonce }
+    serviceSignature: { type: apiKey, in: header, name: x-service-signature }

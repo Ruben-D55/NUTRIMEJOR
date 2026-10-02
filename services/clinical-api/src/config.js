@@ -6,7 +6,7 @@ function integer(value, fallback) {
 export const config = {
   serviceName: "clinical-api",
   port: integer(process.env.PORT, 4005),
-  serviceKey: process.env.SERVICE_API_KEY || "development-only-key",
+  serviceKey: process.env.SERVICE_API_KEY || "",
   identityUrl: process.env.IDENTITY_API_URL || "http://localhost:4001",
   identityTimeoutMs: integer(process.env.IDENTITY_TIMEOUT_MS, 3000),
   migration: "001_consultations.sql",
@@ -20,7 +20,7 @@ export const config = {
     port: integer(process.env.DB_PORT, 14334),
     database: process.env.DB_NAME || "NutrimejorClinical",
     user: process.env.DB_USER || "sa",
-    password: process.env.DB_PASSWORD || "ChangePlatformPassword123!",
+    password: process.env.DB_PASSWORD || "",
     encrypt: process.env.DB_ENCRYPT === "true",
     trustServerCertificate: process.env.DB_TRUST_CERTIFICATE !== "false",
     pool: { max: integer(process.env.DB_POOL_MAX, 8), min: 0, idleTimeoutMillis: 30000 },
@@ -28,6 +28,7 @@ export const config = {
 };
 
 if (!/^[A-Za-z0-9_]+$/.test(config.db.database)) throw new Error("DB_NAME inválido.");
-if (process.env.NODE_ENV === "production" && config.serviceKey.length < 24) {
-  throw new Error("SERVICE_API_KEY debe tener al menos 24 caracteres.");
+if (process.env.NODE_ENV === "production" && config.db.password.length < 16) throw new Error("DB_PASSWORD debe configurarse fuera del código.");
+if (process.env.NODE_ENV === "production" && config.serviceKey.length < 32) {
+  throw new Error("SERVICE_API_KEY debe tener al menos 32 caracteres.");
 }

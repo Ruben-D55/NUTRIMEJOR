@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
+import { signedServiceHeaders } from "./service-auth.mjs";
 
-const serviceKey = process.env.SERVICE_API_KEY || "local-service-key-change-me-1234";
+process.loadEnvFile?.();
+const serviceKey = process.env.SERVICE_API_KEY;
 const local = (url) => url.replace("http://localhost:", "http://127.0.0.1:");
 async function request(url, { token, method = "GET", body, expectedStatus } = {}) {
   const response = await fetch(local(url), {
     method,
     headers: {
-      "x-service-key": serviceKey,
+      ...signedServiceHeaders(serviceKey, method, url),
       ...(token ? { authorization: `Bearer ${token}` } : {}),
       ...(body ? { "content-type": "application/json" } : {}),
     },

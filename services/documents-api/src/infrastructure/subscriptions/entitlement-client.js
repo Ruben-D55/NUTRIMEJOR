@@ -1,4 +1,5 @@
 import { DomainError, unavailable } from "../../domain/errors.js";
+import { signedServiceHeaders } from "../security/service-auth.js";
 
 export class EntitlementClient {
   constructor(config) {
@@ -7,11 +8,12 @@ export class EntitlementClient {
     this.timeoutMs = config.subscriptionsTimeoutMs;
   }
   async consume(organizationId, featureCode) {
+    const path = `/v1/internal/organizations/${organizationId}/consume`;
     let response;
     try {
-      response = await fetch(`${this.baseUrl}/v1/internal/organizations/${organizationId}/consume`, {
+      response = await fetch(`${this.baseUrl}${path}`, {
         method: "POST",
-        headers: { "x-service-key": this.serviceKey, "content-type": "application/json" },
+        headers: signedServiceHeaders(this.serviceKey, "POST", path, { "content-type": "application/json" }),
         body: JSON.stringify({ featureCode, amount: 1 }),
         signal: AbortSignal.timeout(this.timeoutMs),
       });

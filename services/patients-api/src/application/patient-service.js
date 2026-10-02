@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { conflict, notFound } from "../domain/errors.js";
+import { conflict, forbidden, notFound } from "../domain/errors.js";
+
+function assertPatientScope(actor, patientId, write = false) {
+  if (actor.organizationRole !== "PATIENT") return;
+  if (write || !actor.patientId || actor.patientId.toLowerCase() !== String(patientId).toLowerCase()) throw forbidden();
+}
 
 const idSchema = z.string().uuid();
 const patientSchema = z.object({
@@ -71,18 +76,22 @@ export class PatientService {
   constructor(repository) { this.repository = repository; }
 
   async list(actor, input = {}) {
+    if (actor.organizationRole === "PATIENT") throw forbidden();
     const filters = filtersSchema.parse(input);
     const result = await this.repository.list(actor, filters);
     return filters.paged ? result : result.items;
   }
 
   async get(actor, id) {
-    const patient = await this.repository.get(actor, idSchema.parse(id));
+    const patientId = idSchema.parse(id);
+    assertPatientScope(actor, patientId);
+    const patient = await this.repository.get(actor, patientId);
     if (!patient) throw notFound();
     return patient;
   }
 
   async create(actor, input) {
+    if (actor.organizationRole === "PATIENT") throw forbidden();
     const patient = patientSchema.parse(input);
     if (await this.repository.findDuplicate(actor, patient)) {
       throw conflict("Ya existe un paciente con el mismo documento o correo.", "PATIENT_DUPLICATE");
@@ -92,6 +101,7 @@ export class PatientService {
 
   async update(actor, id, input) {
     const patientId = idSchema.parse(id);
+    assertPatientScope(actor, patientId, true);
     const patient = patientSchema.parse(input);
     if (await this.repository.findDuplicate(actor, patient, patientId)) {
       throw conflict("Ya existe un paciente con el mismo documento o correo.", "PATIENT_DUPLICATE");
@@ -102,42 +112,50 @@ export class PatientService {
   }
 
   async remove(actor, id) {
-    if (!(await this.repository.remove(actor, idSchema.parse(id)))) throw notFound();
+    const patientId = idSchema.parse(id);
+    assertPatientScope(actor, patientId, true);
+    if (!(await this.repository.remove(actor, patientId))) throw notFound();
   }
 
-  history(actor, id) { return this.repository.history(actor, idSchema.parse(id)); }
+  history(actor, id) { const value=idSchema.parse(id); assertPatientScope(actor, value); return this.repository.history(actor, value); }
   async addHistory(actor, id, input) {
-    const result = await this.repository.addHistory(actor, idSchema.parse(id), historySchema.parse(input));
+    const value=idSchema.parse(id); assertPatientScope(actor, value, true);
+    const result = await this.repository.addHistory(actor, value, historySchema.parse(input));
     if (!result) throw notFound();
     return result;
   }
-  contacts(actor, id) { return this.repository.contacts(actor, idSchema.parse(id)); }
+  contacts(actor, id) { const value=idSchema.parse(id); assertPatientScope(actor, value); return this.repository.contacts(actor, value); }
   async addContact(actor, id, input) {
-    const result = await this.repository.addContact(actor, idSchema.parse(id), contactSchema.parse(input));
+    const value=idSchema.parse(id); assertPatientScope(actor, value, true);
+    const result = await this.repository.addContact(actor, value, contactSchema.parse(input));
     if (!result) throw notFound();
     return result;
   }
-  emergencyContacts(actor, id) { return this.repository.emergencyContacts(actor, idSchema.parse(id)); }
+  emergencyContacts(actor, id) { const value=idSchema.parse(id); assertPatientScope(actor, value); return this.repository.emergencyContacts(actor, value); }
   async addEmergencyContact(actor, id, input) {
-    const result = await this.repository.addEmergencyContact(actor, idSchema.parse(id), emergencySchema.parse(input));
+    const value=idSchema.parse(id); assertPatientScope(actor, value, true);
+    const result = await this.repository.addEmergencyContact(actor, value, emergencySchema.parse(input));
     if (!result) throw notFound();
     return result;
   }
-  assignments(actor, id) { return this.repository.assignments(actor, idSchema.parse(id)); }
+  assignments(actor, id) { const value=idSchema.parse(id); assertPatientScope(actor, value); return this.repository.assignments(actor, value); }
   async assign(actor, id, input) {
-    const result = await this.repository.assign(actor, idSchema.parse(id), assignmentSchema.parse(input));
+    const value=idSchema.parse(id); assertPatientScope(actor, value, true);
+    const result = await this.repository.assign(actor, value, assignmentSchema.parse(input));
     if (!result) throw notFound();
     return result;
   }
-  tags(actor, id) { return this.repository.tags(actor, idSchema.parse(id)); }
+  tags(actor, id) { const value=idSchema.parse(id); assertPatientScope(actor, value); return this.repository.tags(actor, value); }
   async addTag(actor, id, input) {
-    const result = await this.repository.addTag(actor, idSchema.parse(id), tagSchema.parse(input));
+    const value=idSchema.parse(id); assertPatientScope(actor, value, true);
+    const result = await this.repository.addTag(actor, value, tagSchema.parse(input));
     if (!result) throw notFound();
     return result;
   }
-  consents(actor, id) { return this.repository.consents(actor, idSchema.parse(id)); }
+  consents(actor, id) { const value=idSchema.parse(id); assertPatientScope(actor, value); return this.repository.consents(actor, value); }
   async addConsent(actor, id, input) {
-    const result = await this.repository.addConsent(actor, idSchema.parse(id), consentSchema.parse(input));
+    const value=idSchema.parse(id); assertPatientScope(actor, value, true);
+    const result = await this.repository.addConsent(actor, value, consentSchema.parse(input));
     if (!result) throw notFound();
     return result;
   }

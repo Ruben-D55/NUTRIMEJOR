@@ -10,8 +10,10 @@ import {
 } from "../domain/record.js";
 import { DomainError, forbidden, notFound } from "../domain/errors.js";
 
-function assertAccess(actor) {
+function assertAccess(actor, patientId = null, write = false) {
   if (actor.organizationRole === "ASSISTANT") throw forbidden();
+  if (actor.organizationRole === "PATIENT"
+    && (write || !patientId || !actor.patientId || actor.patientId.toLowerCase() !== String(patientId).toLowerCase())) throw forbidden();
 }
 
 export class RecordService {
@@ -21,19 +23,19 @@ export class RecordService {
   }
 
   list(actor, patientId) {
-    assertAccess(actor);
-    return this.repository.list(actor, patientId ? recordId.parse(patientId) : null);
+    const parsed=patientId ? recordId.parse(patientId) : null; assertAccess(actor, parsed);
+    return this.repository.list(actor, parsed);
   }
 
   async get(actor, id) {
-    assertAccess(actor);
     const item = await this.repository.get(actor, recordId.parse(id));
     if (!item) throw notFound();
+    assertAccess(actor, item.patientId);
     return item;
   }
 
   async create(actor, input) {
-    assertAccess(actor);
+    assertAccess(actor, null, true);
     const parsed = recordInput.parse(input);
     if (parsed.advancedMeasurements.length || parsed.bodyComposition.length) {
       await this.entitlements.assert(actor.organizationId, "measurements.advanced");
@@ -45,8 +47,8 @@ export class RecordService {
   }
 
   async comparison(actor, patientId) {
-    assertAccess(actor);
-    return compareValues(await this.repository.comparison(actor, recordId.parse(patientId)));
+    const parsed=recordId.parse(patientId); assertAccess(actor, parsed);
+    return compareValues(await this.repository.comparison(actor, parsed));
   }
 
   importLegacy(actor, input) {

@@ -183,7 +183,7 @@ function integer(value, fallback) {{
 export const config = {{
   serviceName: "{service['slug']}",
   port: integer(process.env.PORT, {service['port']}),
-  serviceKey: process.env.SERVICE_API_KEY || "development-only-key",
+  serviceKey: process.env.SERVICE_API_KEY || "",
   identityUrl: process.env.IDENTITY_API_URL || "http://localhost:4001",
   identityTimeoutMs: integer(process.env.IDENTITY_TIMEOUT_MS, 3000),
   migration: "{migration_name}",
@@ -197,7 +197,7 @@ export const config = {{
     port: integer(process.env.DB_PORT, 14334),
     database: process.env.DB_NAME || "{service['db']}",
     user: process.env.DB_USER || "sa",
-    password: process.env.DB_PASSWORD || "ChangePlatformPassword123!",
+    password: process.env.DB_PASSWORD || "",
     encrypt: process.env.DB_ENCRYPT === "true",
     trustServerCertificate: process.env.DB_TRUST_CERTIFICATE !== "false",
     pool: {{ max: integer(process.env.DB_POOL_MAX, 8), min: 0, idleTimeoutMillis: 30000 }},
@@ -205,9 +205,8 @@ export const config = {{
 }};
 
 if (!/^[A-Za-z0-9_]+$/.test(config.db.database)) throw new Error("DB_NAME inválido.");
-if (process.env.NODE_ENV === "production" && config.serviceKey.length < 24) {{
-  throw new Error("SERVICE_API_KEY debe tener al menos 24 caracteres.");
-}}
+if (config.serviceKey.length < 32) throw new Error("SERVICE_API_KEY debe tener al menos 32 caracteres.");
+if (!config.db.password) throw new Error("DB_PASSWORD es obligatorio.");
 """)
 
     write(root / "src/infrastructure/identity/identity-client.js", """
@@ -563,11 +562,16 @@ export class SqlRecordRepository {
 }
 """)
 
+    write(
+        root / "src/infrastructure/security/service-auth.js",
+        (ROOT / "services/identity-api/src/infrastructure/security/service-auth.js").read_text(encoding="utf-8"),
+    )
+
     write(root / "src/interfaces/http/server.js", """
 import http from "node:http";
-import { timingSafeEqual } from "node:crypto";
 import { ZodError } from "zod";
 import { DomainError, unauthorized } from "../../domain/errors.js";
+import { verifyServiceRequest } from "../../infrastructure/security/service-auth.js";
 
 function send(response, status, body, requestId) {
   const headers = {
@@ -595,12 +599,6 @@ async function readJson(request) {
   }
 }
 
-function equal(left, right) {
-  const a = Buffer.from(left || "");
-  const b = Buffer.from(right || "");
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
 export function createServer(records, identity, config, readiness) {
   return http.createServer(async (request, response) => {
     const requestId = request.headers["x-request-id"] || crypto.randomUUID();
@@ -614,7 +612,7 @@ export function createServer(records, identity, config, readiness) {
         await readiness();
         return send(response, 200, { status: "ready", service: config.serviceName }, requestId);
       }
-      if (!equal(request.headers["x-service-key"], config.serviceKey)) {
+      if (!verifyServiceRequest(request, config.serviceKey)) {
         throw unauthorized("Cliente de servicio no autorizado.");
       }
       const actor = await identity.authenticate(request.headers.authorization, requestId);
@@ -703,6 +701,11 @@ openapi: 3.1.0
 info:
   title: {service['slug']}
   version: 1.0.0
+security:
+  - bearerAuth: []
+    serviceTimestamp: []
+    serviceNonce: []
+    serviceSignature: []
 paths:
   /health/live:
     get:
@@ -750,6 +753,12 @@ paths:
           schema: {{ type: string, format: uuid }}
       responses:
         '200': {{ description: Estado actualizado }}
+components:
+  securitySchemes:
+    bearerAuth: {{ type: http, scheme: bearer, bearerFormat: JWT }}
+    serviceTimestamp: {{ type: apiKey, in: header, name: x-service-timestamp }}
+    serviceNonce: {{ type: apiKey, in: header, name: x-service-nonce }}
+    serviceSignature: {{ type: apiKey, in: header, name: x-service-signature }}
 """)
 
 print(f"Generated {len(SERVICES)} domain services")

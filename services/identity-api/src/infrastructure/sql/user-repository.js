@@ -6,7 +6,8 @@ export class SqlUserRepository {
     const result = await pool.request().input("email", sql.NVarChar(180), email).query(`
       SELECT TOP 1 userRow.IdUsuario id, userRow.Nombre name, userRow.Email email,
         userRow.Rol role, userRow.PasswordHash passwordHash, userRow.Activo active,
-        userRow.IdOrganizacion organizationId, member.Rol organizationRole
+        userRow.IdOrganizacion organizationId, member.Rol organizationRole,
+        member.IdPaciente patientId
       FROM Usuarios userRow
       JOIN MiembrosOrganizacion member
         ON member.IdUsuario = userRow.IdUsuario
@@ -29,7 +30,7 @@ export class SqlUserRepository {
       SELECT userRow.IdUsuario id, userRow.Nombre name, userRow.Email email,
         userRow.Rol role, userRow.Matricula license, userRow.Especialidad specialty,
         userRow.Apariencia appearance, member.IdOrganizacion organizationId,
-        member.Rol organizationRole
+        member.Rol organizationRole, member.IdPaciente patientId
       FROM Usuarios userRow
       JOIN MiembrosOrganizacion member
         ON member.IdUsuario = userRow.IdUsuario
@@ -120,20 +121,22 @@ export class SqlUserRepository {
     }
   }
 
-  async createInvitation(actor, { email, role, tokenHash, expiresAt }) {
+  async createInvitation(actor, { email, role, patientId, tokenHash, expiresAt }) {
     const pool = await database();
     const result = await pool.request()
       .input("organizationId", sql.UniqueIdentifier, actor.organizationId)
       .input("email", sql.NVarChar(180), email)
       .input("role", sql.VarChar(20), role)
+      .input("patientId", sql.UniqueIdentifier, patientId || null)
       .input("tokenHash", sql.Char(64), tokenHash)
       .input("invitedBy", sql.Int, actor.id)
       .input("expiresAt", sql.DateTime2, expiresAt)
       .query(`INSERT INTO InvitacionesOrganizacion
-              (IdOrganizacion, Email, Rol, TokenHash, InvitadoPor, ExpiraEn)
+              (IdOrganizacion, Email, Rol, IdPaciente, TokenHash, InvitadoPor, ExpiraEn)
               OUTPUT INSERTED.IdInvitacion AS id, INSERTED.IdOrganizacion AS organizationId,
-                     INSERTED.Email AS email, INSERTED.Rol AS role, INSERTED.ExpiraEn AS expiresAt
-              VALUES (@organizationId, @email, @role, @tokenHash, @invitedBy, @expiresAt)`);
+                     INSERTED.Email AS email, INSERTED.Rol AS role, INSERTED.IdPaciente AS patientId,
+                     INSERTED.ExpiraEn AS expiresAt
+              VALUES (@organizationId, @email, @role, @patientId, @tokenHash, @invitedBy, @expiresAt)`);
     return result.recordset[0];
   }
 
@@ -147,7 +150,7 @@ export class SqlUserRepository {
         .input("userId", sql.Int, actor.id)
         .query(`SELECT TOP 1 invitation.IdInvitacion AS id,
                        invitation.IdOrganizacion AS organizationId,
-                       invitation.Rol AS role
+                       invitation.Rol AS role, invitation.IdPaciente AS patientId
                 FROM InvitacionesOrganizacion invitation WITH (UPDLOCK, HOLDLOCK)
                 JOIN Usuarios userRow ON userRow.IdUsuario=@userId
                   AND LOWER(userRow.Email)=LOWER(invitation.Email)
@@ -163,12 +166,13 @@ export class SqlUserRepository {
         .input("organizationId", sql.UniqueIdentifier, row.organizationId)
         .input("userId", sql.Int, actor.id)
         .input("role", sql.VarChar(20), row.role)
+        .input("patientId", sql.UniqueIdentifier, row.patientId || null)
         .query(`MERGE MiembrosOrganizacion AS target
                 USING (SELECT @organizationId AS IdOrganizacion, @userId AS IdUsuario) AS source
                 ON target.IdOrganizacion=source.IdOrganizacion AND target.IdUsuario=source.IdUsuario
-                WHEN MATCHED THEN UPDATE SET Rol=@role, Activo=1
-                WHEN NOT MATCHED THEN INSERT (IdOrganizacion, IdUsuario, Rol)
-                  VALUES (@organizationId, @userId, @role);`);
+                WHEN MATCHED THEN UPDATE SET Rol=@role, IdPaciente=@patientId, Activo=1
+                WHEN NOT MATCHED THEN INSERT (IdOrganizacion, IdUsuario, Rol, IdPaciente)
+                  VALUES (@organizationId, @userId, @role, @patientId);`);
       await new sql.Request(transaction)
         .input("invitationId", sql.UniqueIdentifier, row.id)
         .query("UPDATE InvitacionesOrganizacion SET AceptadaEn=SYSUTCDATETIME() WHERE IdInvitacion=@invitationId");
@@ -185,7 +189,7 @@ export class SqlUserRepository {
     const result = await pool.request()
       .input("organizationId", sql.UniqueIdentifier, organizationId)
       .query(`SELECT userRow.IdUsuario AS id, userRow.Nombre AS name, userRow.Email AS email,
-                     member.Rol AS role, member.Activo AS active
+                     member.Rol AS role, member.IdPaciente AS patientId, member.Activo AS active
               FROM MiembrosOrganizacion member
               JOIN Usuarios userRow ON userRow.IdUsuario=member.IdUsuario
               WHERE member.IdOrganizacion=@organizationId
@@ -195,14 +199,16 @@ export class SqlUserRepository {
 
   async createRefreshSession({ userId, organizationId, tokenHash, expiresAt }) {
     const pool = await database();
+    const id = crypto.randomUUID();
     await pool.request()
+      .input("id", sql.UniqueIdentifier, id)
       .input("userId", sql.Int, userId)
       .input("organizationId", sql.UniqueIdentifier, organizationId)
       .input("tokenHash", sql.Char(64), tokenHash)
       .input("expiresAt", sql.DateTime2, expiresAt)
       .query(`INSERT INTO SesionesRenovacion
-              (IdUsuario, IdOrganizacion, TokenHash, ExpiraEn)
-              VALUES (@userId, @organizationId, @tokenHash, @expiresAt)`);
+              (IdSesion, IdUsuario, IdOrganizacion, TokenHash, ExpiraEn, FamiliaId)
+              VALUES (@id, @userId, @organizationId, @tokenHash, @expiresAt, @id)`);
   }
 
   async rotateRefreshSession({ tokenHash, replacementHash, replacementExpiresAt }) {
@@ -213,12 +219,25 @@ export class SqlUserRepository {
       const current = await new sql.Request(transaction)
         .input("tokenHash", sql.Char(64), tokenHash)
         .query(`SELECT TOP 1 IdSesion AS id, IdUsuario AS userId,
-                       IdOrganizacion AS organizationId
+                       IdOrganizacion AS organizationId, FamiliaId AS familyId
                 FROM SesionesRenovacion WITH (UPDLOCK, HOLDLOCK)
                 WHERE TokenHash=@tokenHash AND RevocadaEn IS NULL
                   AND ExpiraEn > SYSUTCDATETIME()`);
       const session = current.recordset[0];
       if (!session) {
+        const reused = await new sql.Request(transaction)
+          .input("tokenHash", sql.Char(64), tokenHash)
+          .query(`SELECT TOP 1 FamiliaId AS familyId FROM SesionesRenovacion
+                  WHERE TokenHash=@tokenHash AND RevocadaEn IS NOT NULL`);
+        if (reused.recordset[0]?.familyId) {
+          await new sql.Request(transaction)
+            .input("familyId", sql.UniqueIdentifier, reused.recordset[0].familyId)
+            .query(`UPDATE SesionesRenovacion
+                    SET RevocadaEn=COALESCE(RevocadaEn, SYSUTCDATETIME())
+                    WHERE FamiliaId=@familyId`);
+          await transaction.commit();
+          return null;
+        }
         await transaction.rollback();
         return null;
       }
@@ -229,9 +248,10 @@ export class SqlUserRepository {
         .input("organizationId", sql.UniqueIdentifier, session.organizationId)
         .input("tokenHash", sql.Char(64), replacementHash)
         .input("expiresAt", sql.DateTime2, replacementExpiresAt)
+        .input("familyId", sql.UniqueIdentifier, session.familyId)
         .query(`INSERT INTO SesionesRenovacion
-                (IdSesion, IdUsuario, IdOrganizacion, TokenHash, ExpiraEn)
-                VALUES (@id, @userId, @organizationId, @tokenHash, @expiresAt)`);
+                (IdSesion, IdUsuario, IdOrganizacion, TokenHash, ExpiraEn, FamiliaId)
+                VALUES (@id, @userId, @organizationId, @tokenHash, @expiresAt, @familyId)`);
       await new sql.Request(transaction)
         .input("currentId", sql.UniqueIdentifier, session.id)
         .input("replacementId", sql.UniqueIdentifier, replacementId)
@@ -254,6 +274,15 @@ export class SqlUserRepository {
       .query(`UPDATE SesionesRenovacion SET RevocadaEn=COALESCE(RevocadaEn, SYSUTCDATETIME())
               WHERE TokenHash=@tokenHash`);
     return result.rowsAffected[0] > 0;
+  }
+
+  async revokeAllRefreshSessions(userId, organizationId) {
+    const pool = await database();
+    await pool.request()
+      .input("userId", sql.Int, userId)
+      .input("organizationId", sql.UniqueIdentifier, organizationId)
+      .query(`UPDATE SesionesRenovacion SET RevocadaEn=COALESCE(RevocadaEn, SYSUTCDATETIME())
+              WHERE IdUsuario=@userId AND IdOrganizacion=@organizationId`);
   }
 
   async createPasswordReset({ userId, tokenHash, expiresAt }) {

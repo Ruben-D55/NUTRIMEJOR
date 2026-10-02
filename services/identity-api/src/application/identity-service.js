@@ -30,7 +30,15 @@ const organization = z.object({ name: z.string().trim().min(3).max(150) });
 const organizationSelection = z.object({ organizationId: z.string().uuid() });
 const invitation = z.object({
   email: z.string().email().max(180).transform((value) => value.toLowerCase()),
-  role: z.enum(["ADMIN", "NUTRITIONIST", "ASSISTANT"]),
+  role: z.enum(["ADMIN", "NUTRITIONIST", "ASSISTANT", "PATIENT"]),
+  patientId: z.string().uuid().optional(),
+}).superRefine((value, context) => {
+  if (value.role === "PATIENT" && !value.patientId) {
+    context.addIssue({ code: "custom", message: "El rol paciente requiere patientId." });
+  }
+  if (value.role !== "PATIENT" && value.patientId) {
+    context.addIssue({ code: "custom", message: "patientId solo se permite para el rol paciente." });
+  }
 });
 const invitationToken = z.object({ token: z.string().length(64) });
 const refreshRequest = z.object({ refreshToken: z.string().length(96) });
@@ -53,6 +61,7 @@ export class IdentityService {
     this.passwords = passwords;
     this.tokens = tokens;
     this.exposeDevelopmentTokens = Boolean(options.exposeDevelopmentTokens);
+    this.refreshTokenDays = options.refreshTokenDays || 7;
   }
 
   async register(input, context) {
@@ -85,6 +94,7 @@ export class IdentityService {
       role: user.role,
       organizationId: user.organizationId,
       organizationRole: user.organizationRole,
+      patientId: user.patientId,
     };
     const session = await this.issueSession(safeUser);
     await this.audit("login", true, safeUser, context);
@@ -102,6 +112,7 @@ export class IdentityService {
         role: user.role,
         organizationId: user.organizationId,
         organizationRole: user.organizationRole,
+        patientId: user.patientId,
       };
     } catch (error) {
       if (error?.status === 401) throw error;
@@ -114,6 +125,9 @@ export class IdentityService {
   }
 
   createOrganization(actor, input) {
+    if (!["OWNER", "ADMIN"].includes(actor.organizationRole)) {
+      throw forbidden("No puedes crear organizaciones.");
+    }
     return this.users.createOrganization(actor, organization.parse(input).name);
   }
 
@@ -121,6 +135,9 @@ export class IdentityService {
     const id = z.string().uuid().parse(organizationId);
     if (actor.organizationId.toLowerCase() !== id.toLowerCase()) {
       throw forbidden("Selecciona esta organización para consultar sus miembros.");
+    }
+    if (!["OWNER", "ADMIN", "NUTRITIONIST"].includes(actor.organizationRole)) {
+      throw forbidden("Tu rol no permite consultar los miembros.");
     }
     return this.users.listMembers(id);
   }
@@ -163,6 +180,7 @@ export class IdentityService {
     const safeUser = {
       id: user.id, name: user.name, email: user.email, role: user.role,
       organizationId: user.organizationId, organizationRole: user.organizationRole,
+      patientId: user.patientId,
     };
     return this.issueSession(safeUser);
   }
@@ -173,7 +191,7 @@ export class IdentityService {
       userId: user.id,
       organizationId: user.organizationId,
       tokenHash: refreshHash(refreshToken),
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + this.refreshTokenDays * 24 * 60 * 60 * 1000),
     });
     return { user, accessToken: await this.tokens.sign(user), refreshToken };
   }
@@ -184,7 +202,7 @@ export class IdentityService {
     const session = await this.users.rotateRefreshSession({
       tokenHash: refreshHash(refreshToken),
       replacementHash: refreshHash(replacementToken),
-      replacementExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      replacementExpiresAt: new Date(Date.now() + this.refreshTokenDays * 24 * 60 * 60 * 1000),
     });
     if (!session) {
       await this.audit("refresh", false, null, context, { reason: "invalid_or_reused" });
@@ -195,6 +213,7 @@ export class IdentityService {
     const safeUser = {
       id: user.id, name: user.name, email: user.email, role: user.role,
       organizationId: user.organizationId, organizationRole: user.organizationRole,
+      patientId: user.patientId,
     };
     const result = { user: safeUser, accessToken: await this.tokens.sign(safeUser), refreshToken: replacementToken };
     await this.audit("refresh", true, safeUser, context);
@@ -205,6 +224,12 @@ export class IdentityService {
     const { refreshToken } = refreshRequest.parse(input);
     await this.users.revokeRefreshSession(refreshHash(refreshToken));
     await this.audit("logout", true, null, context);
+    return { ok: true };
+  }
+
+  async logoutAll(actor, context) {
+    await this.users.revokeAllRefreshSessions(actor.id, actor.organizationId);
+    await this.audit("logout_all", true, actor, context);
     return { ok: true };
   }
 
@@ -307,6 +332,7 @@ export class IdentityService {
       );
     }
     await this.users.updatePassword(actor.id, await this.passwords.hash(data.newPassword));
+    await this.users.revokeAllRefreshSessions(actor.id, actor.organizationId);
     await this.audit("password_changed", true, actor, context);
     return { ok: true };
   }

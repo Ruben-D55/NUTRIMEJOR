@@ -55,13 +55,14 @@ export class JwtService {
       role: user.role,
       organizationId: user.organizationId,
       organizationRole: user.organizationRole,
+      patientId: user.patientId,
     })
       .setProtectedHeader({ alg: "RS256", kid: keys.kid, typ: "JWT" })
       .setSubject(String(user.id))
       .setIssuer(config.jwtIssuer)
       .setAudience(config.jwtAudience)
       .setIssuedAt()
-      .setExpirationTime("30m")
+      .setExpirationTime(`${config.accessTokenMinutes}m`)
       .sign(keys.privateKey);
   }
 
@@ -78,6 +79,7 @@ export class JwtService {
       role: payload.role,
       organizationId: payload.organizationId,
       organizationRole: payload.organizationRole,
+      patientId: payload.patientId,
     };
   }
 

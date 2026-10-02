@@ -12,7 +12,7 @@ const identity = new IdentityService(
   new SqlUserRepository(),
   new PasswordHasher(),
   new JwtService(),
-  { exposeDevelopmentTokens: config.exposeDevelopmentTokens },
+  { exposeDevelopmentTokens: config.exposeDevelopmentTokens, refreshTokenDays: config.refreshTokenDays },
 );
 
 createServer(identity, config, async () => {

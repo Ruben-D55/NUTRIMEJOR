@@ -6,7 +6,13 @@ import {
   recordInput,
   statusInput,
 } from "../domain/record.js";
-import { DomainError, notFound } from "../domain/errors.js";
+import { DomainError, forbidden, notFound } from "../domain/errors.js";
+
+function assertScope(actor, patientId, write = false) {
+  if (actor.organizationRole !== "PATIENT") return;
+  if (!patientId || !actor.patientId || actor.patientId.toLowerCase() !== String(patientId).toLowerCase()) throw forbidden();
+  if (write !== false && write !== "appointment") throw forbidden();
+}
 
 const transitions = {
   scheduled: new Set(["confirmed", "cancelled"]),
@@ -22,8 +28,10 @@ export class RecordService {
   }
 
   list(actor, filters = {}) {
+    const patientId=filters.patientId ? recordId.parse(filters.patientId) : null;
+    assertScope(actor, patientId);
     return this.repository.list(actor, {
-      patientId: filters.patientId ? recordId.parse(filters.patientId) : null,
+      patientId,
       from: filters.from || null,
       to: filters.to || null,
     });
@@ -32,11 +40,13 @@ export class RecordService {
   async get(actor, id) {
     const item = await this.repository.get(actor, recordId.parse(id));
     if (!item) throw notFound();
+    assertScope(actor, item.patientId);
     return item;
   }
 
   async create(actor, input) {
-    const result = await this.repository.create(actor, recordInput.parse(input));
+    const parsed=recordInput.parse(input); assertScope(actor, parsed.patientId, "appointment");
+    const result = await this.repository.create(actor, parsed);
     if (result?.conflict) {
       throw new DomainError("El profesional ya tiene una cita en ese horario.", 409, "APPOINTMENT_CONFLICT");
     }
@@ -50,6 +60,7 @@ export class RecordService {
     const parsed = statusInput.parse(input);
     const current = await this.repository.get(actor, recordId.parse(id));
     if (!current) throw notFound();
+    assertScope(actor, current.patientId, parsed.status === "cancelled" ? "appointment" : true);
     if (!transitions[current.status]?.has(parsed.status)) {
       throw new DomainError(
         `No se permite cambiar una cita de ${current.status} a ${parsed.status}.`,
@@ -67,14 +78,17 @@ export class RecordService {
   }
 
   availability(actor) {
+    if (actor.organizationRole === "PATIENT") throw forbidden();
     return this.repository.availability(actor);
   }
 
   addAvailabilityRule(actor, input) {
+    if (actor.organizationRole === "PATIENT") throw forbidden();
     return this.repository.addAvailabilityRule(actor, availabilityRuleInput.parse(input));
   }
 
   addAvailabilityException(actor, input) {
+    if (actor.organizationRole === "PATIENT") throw forbidden();
     return this.repository.addAvailabilityException(actor, availabilityExceptionInput.parse(input));
   }
 
