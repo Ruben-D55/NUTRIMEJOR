@@ -126,6 +126,9 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Review dependency changes
         if: github.event_name == 'pull_request'
+        # GitHub omite esta API cuando el repositorio no expone Dependency Graph.
+        # npm audit y Trivy continúan siendo controles obligatorios.
+        continue-on-error: true
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
