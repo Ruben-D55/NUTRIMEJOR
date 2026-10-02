@@ -73,6 +73,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-nutrimejor}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Ejecuta npm run setup:env}
+    command: ["sh", "-c", "rabbitmq-plugins enable --offline rabbitmq_prometheus && rabbitmq-server"]
     ports:
       - "127.0.0.1:5672:5672"
       - "127.0.0.1:15672:15672"
@@ -327,6 +328,7 @@ services:
       GATEWAY_RETRIES: ${GATEWAY_RETRIES:-2}
       CIRCUIT_FAILURE_THRESHOLD: ${CIRCUIT_FAILURE_THRESHOLD:-5}
       CIRCUIT_OPEN_MS: ${CIRCUIT_OPEN_MS:-30000}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       IDENTITY_API_URL: http://identity-api:4001
       PATIENTS_API_URL: http://patients-api:4002
       CATALOGS_API_URL: http://catalogs-api:4003
@@ -374,6 +376,96 @@ services:
     ports:
       - "5050:8080"
 
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.27.0
+    profiles: ["full", "monitoring"]
+    restart: unless-stopped
+    command: ["--config.file=/etc/blackbox_exporter/config.yml"]
+    volumes:
+      - ./observability/blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    profiles: ["full", "monitoring"]
+    restart: unless-stopped
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/alertmanager"]
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "127.0.0.1:9093:9093"
+
+  prometheus:
+    image: prom/prometheus:v3.14.0
+    profiles: ["full", "monitoring"]
+    restart: unless-stopped
+    depends_on: [api-gateway, blackbox-exporter, alertmanager]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  loki:
+    image: grafana/loki:3.7.3
+    profiles: ["full", "monitoring"]
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - ./observability/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+
+  alloy:
+    image: grafana/alloy:v1.20.1
+    profiles: ["full", "monitoring"]
+    restart: unless-stopped
+    depends_on: [loki]
+    command: ["run", "/etc/alloy/config.alloy", "--server.http.listen-addr=0.0.0.0:12345"]
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - //var/run/docker.sock:/var/run/docker.sock:ro
+
+  tempo:
+    image: grafana/tempo:3.1.0
+    profiles: ["full", "monitoring"]
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo/tempo.yml"]
+    volumes:
+      - ./observability/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo_data:/var/tempo
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.161.0
+    profiles: ["full", "monitoring"]
+    restart: unless-stopped
+    depends_on: [tempo]
+    command: ["--config=/etc/otelcol-contrib/config.yml"]
+    volumes:
+      - ./observability/otel-collector/config.yml:/etc/otelcol-contrib/config.yml:ro
+
+  grafana:
+    image: grafana/grafana:13.2.2
+    profiles: ["full", "monitoring"]
+    restart: unless-stopped
+    depends_on: [prometheus, loki, tempo, alertmanager]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Ejecuta npm run setup:env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3001:3000"
+
 volumes:
   identity_data:
   identity_keys:
@@ -383,3 +475,8 @@ volumes:
   rabbitmq_data:
   redis_data:
   documents_data:
+  prometheus_data:
+  alertmanager_data:
+  loki_data:
+  tempo_data:
+  grafana_data:

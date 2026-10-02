@@ -1,0 +1,70 @@
+groups:
+  - name: nutrimejor-availability
+    rules:
+      - alert: ApiGatewayDown
+        expr: up{job="api-gateway"} == 0
+        for: 1m
+        labels: { severity: critical, category: api }
+        annotations:
+          summary: "El API Gateway no responde"
+          description: "Prometheus no puede obtener métricas del punto de entrada único."
+      - alert: ApiUnavailable
+        expr: probe_success{job="api-readiness"} == 0
+        for: 1m
+        labels: { severity: critical, category: api }
+        annotations:
+          summary: "API interna no disponible"
+          description: "{{ $labels.instance }} no supera su comprobación de disponibilidad."
+      - alert: DatabaseUnavailable
+        expr: probe_success{job="database-connectivity"} == 0
+        for: 1m
+        labels: { severity: critical, category: database }
+        annotations:
+          summary: "Base de datos sin conexión"
+          description: "No se puede establecer una conexión TCP con {{ $labels.instance }}."
+
+  - name: nutrimejor-performance
+    rules:
+      - alert: HighApiLatency
+        expr: histogram_quantile(0.95, sum by (le, service) (rate(nutrimejor_gateway_http_request_duration_seconds_bucket[5m]))) > 2
+        for: 5m
+        labels: { severity: warning, category: latency }
+        annotations:
+          summary: "Tiempo de respuesta elevado"
+          description: "El percentil 95 de {{ $labels.service }} supera 2 segundos."
+      - alert: RepeatedServerErrors
+        expr: sum by (service) (increase(nutrimejor_gateway_http_requests_total{status=~"5.."}[5m])) >= 10
+        for: 2m
+        labels: { severity: warning, category: errors }
+        annotations:
+          summary: "Errores repetidos en una API"
+          description: "{{ $labels.service }} acumuló al menos 10 errores 5xx en cinco minutos."
+      - alert: UpstreamCircuitOpen
+        expr: increase(nutrimejor_gateway_circuit_open_total[5m]) > 0
+        labels: { severity: critical, category: resilience }
+        annotations:
+          summary: "Circuit breaker abierto"
+          description: "El gateway aisló temporalmente {{ $labels.service }}."
+
+  - name: nutrimejor-messaging
+    rules:
+      - alert: RabbitMqQueueBacklog
+        expr: sum by (queue) (rabbitmq_queue_messages_ready) > 100
+        for: 5m
+        labels: { severity: warning, category: messaging }
+        annotations:
+          summary: "Cola con eventos pendientes"
+          description: "La cola {{ $labels.queue }} mantiene más de 100 eventos pendientes."
+      - alert: RabbitMqUnacknowledgedMessages
+        expr: sum by (queue) (rabbitmq_queue_messages_unacked) > 50
+        for: 5m
+        labels: { severity: warning, category: messaging }
+        annotations:
+          summary: "Eventos sin confirmar"
+          description: "La cola {{ $labels.queue }} tiene más de 50 eventos entregados sin confirmar."
+      - alert: OpenTelemetryExportFailures
+        expr: increase(otelcol_exporter_send_failed_spans_total[5m]) > 0
+        labels: { severity: warning, category: telemetry }
+        annotations:
+          summary: "Fallo exportando trazas"
+          description: "OpenTelemetry Collector no pudo enviar una o más trazas a Tempo."

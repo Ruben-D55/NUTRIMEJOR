@@ -7,6 +7,7 @@ Next.js 16 de transición y servicios independientes.
 
 - `api-gateway`: punto de entrada único, autenticación, permisos, CORS, límites,
   resiliencia y trazabilidad para las doce APIs.
+- `observability`: OpenTelemetry, Prometheus, Loki, Tempo, Grafana y Alertmanager.
 - `web` (raíz): interfaz y Backend for Frontend. El navegador solo consume `/api/*`.
 - `frontend-razor/Nutrimejor.Web`: interfaz ejecutiva Razor, Bootstrap y JavaScript.
 - `identity-api`: cuentas, sesiones, organizaciones, miembros y auditoría.
@@ -27,7 +28,8 @@ Cada API aplica arquitectura limpia: `domain`, `application`, `infrastructure` e
 de otro servicio. La comunicación se realiza por HTTP.
 
 Consulta [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para la arquitectura completa,
-[docs/API_GATEWAY.md](docs/API_GATEWAY.md) para las rutas y políticas del gateway, y
+[docs/API_GATEWAY.md](docs/API_GATEWAY.md) para las rutas y políticas del gateway,
+[docs/MONITORING.md](docs/MONITORING.md) para paneles, registros, trazas y alertas, y
 [docs/IMPLEMENTATION_ROADMAP.md](docs/IMPLEMENTATION_ROADMAP.md) para implementarla fase
 por fase. El avance comprobado y el trabajo pendiente están en
 [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
@@ -39,7 +41,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Para iniciar todos los dominios, RabbitMQ y Redis:
+Para iniciar todos los dominios, RabbitMQ, Redis y el entorno de monitoreo:
 
 ```bash
 docker compose --profile full up --build
@@ -55,6 +57,9 @@ Puertos locales:
 | Web/BFF | 3000 |
 | Frontend Razor | 5050 |
 | API Gateway (12 módulos) | 4080 |
+| Grafana | 3001 |
+| Prometheus | 9090 |
+| Alertmanager | 9093 |
 | Identidad SQL | 14331 |
 | Pacientes SQL | 14332 |
 | Catálogos SQL | 14333 |
@@ -81,6 +86,7 @@ npm run typecheck
 npm run test:services
 npm run validate:openapi
 npm run verify:architecture
+npm run verify:observability
 npm run smoke:health-load
 npm run smoke:platform
 npm run smoke:organizations

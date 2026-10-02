@@ -1,0 +1,14 @@
+route:
+  receiver: nutrimejor-operations
+  group_by: [alertname, category, service, instance]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: nutrimejor-operations
+
+inhibit_rules:
+  - source_matchers: ['severity="critical"']
+    target_matchers: ['severity="warning"']
+    equal: [category, service, instance]
