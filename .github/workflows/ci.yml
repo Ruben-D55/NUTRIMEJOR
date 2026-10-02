@@ -32,9 +32,11 @@ jobs:
       - run: npm run build
       - run: dotnet build frontend-razor/Nutrimejor.Web/Nutrimejor.Web.csproj --configuration Release
       - run: npm run test:services
+      - run: npm run test:data-protection
       - run: python scripts/validate-openapi.py
       - run: python scripts/verify-architecture.py
       - run: python scripts/verify-observability.py
+      - run: npm run verify:data-protection
       - run: docker compose config --quiet
       - run: docker compose --profile full config --quiet
       - run: docker compose --profile monitoring config --quiet

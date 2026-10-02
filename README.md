@@ -87,6 +87,8 @@ npm run test:services
 npm run validate:openapi
 npm run verify:architecture
 npm run verify:observability
+npm run verify:data-protection
+npm run test:data-protection
 npm run smoke:health-load
 npm run smoke:platform
 npm run smoke:organizations
@@ -109,6 +111,6 @@ docker compose config
 docker compose --profile full config
 ```
 
-El respaldo y el simulacro de recuperación local se ejecutan con
-`scripts/backup-databases.ps1` y `scripts/restore-drill.ps1`. Consulta
-[`DEPLOYMENT.md`](DEPLOYMENT.md) antes de preparar un ambiente productivo.
+El respaldo cifrado, la retención, el simulacro de restauración y la reversión de
+migraciones están descritos en [`docs/DATA_PROTECTION.md`](docs/DATA_PROTECTION.md).
+Consulta también [`DEPLOYMENT.md`](DEPLOYMENT.md) antes de preparar un ambiente productivo.

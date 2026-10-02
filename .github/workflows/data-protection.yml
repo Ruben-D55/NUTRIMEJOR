@@ -1,0 +1,54 @@
+name: Data protection drill
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 5 * * 0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-protection-drill
+  cancel-in-progress: false
+
+jobs:
+  backup-restore-rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Create ephemeral secrets
+        run: npm run setup:env
+      - name: Start the twelve databases and APIs
+        run: docker compose --profile full up -d --build --wait --wait-timeout 420
+      - name: Create encrypted backup set
+        id: backup
+        shell: pwsh
+        run: |
+          $backupSet = (& ./scripts/backup-databases.ps1 -SkipRetention | Select-Object -Last 1).Trim()
+          if (-not (Test-Path -LiteralPath $backupSet)) { throw "No se creó el respaldo." }
+          "backup_set=$backupSet" >> $env:GITHUB_OUTPUT
+      - name: Restore and verify all databases
+        shell: pwsh
+        run: ./scripts/restore-drill.ps1 -BackupDirectory '${{ steps.backup.outputs.backup_set }}'
+      - name: Reverse and reapply the latest migration
+        shell: pwsh
+        run: |
+          ./scripts/rollback-databases.ps1 -Steps 1
+          ./scripts/migrate-databases.ps1
+      - name: Container logs
+        if: failure()
+        run: docker compose --profile full logs --no-color --tail 300
+      - name: Stop and remove drill data
+        if: always()
+        run: docker compose --profile full down -v
+      - name: Remove backup artifacts
+        if: always()
+        shell: pwsh
+        run: if (Test-Path -LiteralPath ./backups) { Remove-Item -LiteralPath ./backups -Recurse -Force }

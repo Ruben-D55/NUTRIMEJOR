@@ -97,3 +97,12 @@ formularios dedicados.
 - Métricas de tráfico, errores, latencia, disponibilidad, bases y RabbitMQ en Prometheus.
 - Dashboard operativo provisionado automáticamente en Grafana.
 - Alertmanager y reglas para APIs, bases, latencia, errores, circuitos y colas pendientes.
+
+# Fase 6: protección de datos
+
+- Respaldo completo automatizado de las doce bases con checksum.
+- Cifrado autenticado AES-256-GCM, hashes SHA-256 y manifiesto firmado con HMAC-SHA256.
+- Simulacro semanal que descifra, ejecuta `RESTORE VERIFYONLY`, restaura y valida con `DBCC CHECKDB`.
+- Retención GFS configurable: 14 días, 8 semanas y 12 meses de forma predeterminada.
+- Índices orientados a las consultas habituales de cada dominio.
+- Migraciones `up/down` transaccionales y reversión centralizada para los doce servicios.
