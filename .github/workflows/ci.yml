@@ -37,6 +37,7 @@ jobs:
       - run: python scripts/verify-architecture.py
       - run: python scripts/verify-observability.py
       - run: npm run verify:data-protection
+      - run: npm run verify:frontend
       - run: docker compose config --quiet
       - run: docker compose --profile full config --quiet
       - run: docker compose --profile monitoring config --quiet

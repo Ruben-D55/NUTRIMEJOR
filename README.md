@@ -33,6 +33,8 @@ Consulta [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para la arquitectura compl
 [docs/IMPLEMENTATION_ROADMAP.md](docs/IMPLEMENTATION_ROADMAP.md) para implementarla fase
 por fase. El avance comprobado y el trabajo pendiente están en
 [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
+Las mejoras operativas, móviles y de accesibilidad del frontend se describen en
+[docs/FRONTEND_PHASE_7.md](docs/FRONTEND_PHASE_7.md).
 
 ## Inicio rápido con Docker
 
@@ -88,6 +90,7 @@ npm run validate:openapi
 npm run verify:architecture
 npm run verify:observability
 npm run verify:data-protection
+npm run verify:frontend
 npm run test:data-protection
 npm run smoke:health-load
 npm run smoke:platform
