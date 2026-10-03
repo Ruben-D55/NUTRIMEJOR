@@ -39,6 +39,7 @@ jobs:
       - run: npm run verify:data-protection
       - run: npm run verify:frontend
       - run: npm run verify:advanced-nutrition
+      - run: npm run verify:scheduling-communications
       - run: docker compose config --quiet
       - run: docker compose --profile full config --quiet
       - run: docker compose --profile monitoring config --quiet

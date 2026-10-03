@@ -61,6 +61,10 @@ export function createServer(records, identity, config, readiness) {
       if (url.pathname === "/v1/notification-jobs" && request.method === "GET") {
         return send(response, 200, await records.listNotifications(actor, url.searchParams.get("patientId")), requestId);
       }
+      const attempts = url.pathname.match(/^\/v1\/notification-jobs\/([^/]+)\/attempts$/);
+      if (attempts && request.method === "GET") {
+        return send(response, 200, await records.deliveryAttempts(actor, decodeURIComponent(attempts[1])), requestId);
+      }
       if (url.pathname === "/v1/alert-rules" && request.method === "GET") {
         return send(response, 200, await records.alertRules(actor), requestId);
       }

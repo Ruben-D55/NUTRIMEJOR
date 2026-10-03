@@ -1,2 +1,2 @@
-import { ModuleCrud } from "@/components/platform/module-crud";
-export default function Page(){ return <ModuleCrud kind="scheduling"/>; }
+import { SchedulingWorkspace } from "@/components/platform/scheduling-workspace";
+export default function Page(){return <SchedulingWorkspace/>;}

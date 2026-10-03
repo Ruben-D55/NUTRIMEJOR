@@ -31,6 +31,7 @@
     "verify:data-protection": "python scripts/verify-data-protection.py",
     "verify:frontend": "python scripts/verify-frontend.py",
     "verify:advanced-nutrition": "python scripts/verify-advanced-nutrition.py",
+    "verify:scheduling-communications": "python scripts/verify-scheduling-communications.py",
     "test:data-protection": "node --test tests/data-protection/*.test.mjs",
     "backup:databases": "pwsh -NoProfile -File scripts/backup-databases.ps1",
     "smoke:health-load": "node scripts/smoke-health-load.mjs",

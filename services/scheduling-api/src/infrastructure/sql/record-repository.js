@@ -188,6 +188,46 @@ export class SqlRecordRepository {
     }
   }
 
+  async reschedule(actor, id, input) {
+    const pool = await database();
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+    try {
+      const startsAt = new Date(input.startsAt), endsAt = new Date(input.endsAt);
+      const localStart = localParts(input.startsAt, input.timeZone), localEnd = localParts(input.endsAt, input.timeZone);
+      const result = await new sql.Request(transaction)
+        .input("organizationId", sql.UniqueIdentifier, actor.organizationId)
+        .input("owner", sql.Int, actor.id)
+        .input("id", sql.UniqueIdentifier, id)
+        .input("version", sql.Int, input.expectedVersion)
+        .input("weekday", sql.TinyInt, localStart.weekday)
+        .input("localStart", sql.VarChar(5), localStart.time)
+        .input("localEnd", sql.VarChar(5), localEnd.time)
+        .input("startsAt", sql.DateTime2, startsAt)
+        .input("endsAt", sql.DateTime2, endsAt)
+        .query(`SELECT Estado AS status, Version AS version, IdPaciente AS patientId,
+                       StartsAt AS previousStartsAt, EndsAt AS previousEndsAt,
+                       (SELECT COUNT(*) FROM AvailabilityRules WHERE IdOrganizacion=@organizationId AND IdNutricionista=Appointments.IdNutricionista AND Active=1) AS ruleCount,
+                       (SELECT COUNT(*) FROM AvailabilityRules WHERE IdOrganizacion=@organizationId AND IdNutricionista=Appointments.IdNutricionista AND Active=1 AND Weekday=@weekday AND StartTime<=CONVERT(time,@localStart) AND EndTime>=CONVERT(time,@localEnd)) AS matchingRules,
+                       (SELECT COUNT(*) FROM AvailabilityExceptions WHERE IdOrganizacion=@organizationId AND IdNutricionista=Appointments.IdNutricionista AND Available=0 AND StartsAt<@endsAt AND EndsAt>@startsAt) AS blocked,
+                       (SELECT COUNT(*) FROM AvailabilityExceptions WHERE IdOrganizacion=@organizationId AND IdNutricionista=Appointments.IdNutricionista AND Available=1 AND StartsAt<=@startsAt AND EndsAt>=@endsAt) AS availableOverride,
+                       (SELECT COUNT(*) FROM Appointments other WITH (UPDLOCK, HOLDLOCK) WHERE other.IdOrganizacion=@organizationId AND other.IdNutricionista=Appointments.IdNutricionista AND other.IdAppointment<>@id AND other.Estado IN ('scheduled','confirmed') AND other.StartsAt<@endsAt AND other.EndsAt>@startsAt) AS conflicts
+                FROM Appointments WITH (UPDLOCK, HOLDLOCK)
+                WHERE IdOrganizacion=@organizationId AND IdAppointment=@id`);
+      const row = result.recordset[0];
+      if (!row) { await transaction.rollback(); return null; }
+      if (row.version !== input.expectedVersion) { await transaction.rollback(); return { versionConflict: true }; }
+      if (row.blocked || (row.ruleCount && !row.matchingRules && !row.availableOverride)) { await transaction.rollback(); return { unavailable: true }; }
+      if (row.conflicts) { await transaction.rollback(); return { conflict: true }; }
+      await new sql.Request(transaction).input("id",sql.UniqueIdentifier,id).input("startsAt",sql.DateTime2,startsAt).input("endsAt",sql.DateTime2,endsAt).input("timeZone",sql.NVarChar(80),input.timeZone)
+        .query("UPDATE Appointments SET StartsAt=@startsAt, EndsAt=@endsAt, TimeZone=@timeZone, Estado='scheduled', Version=Version+1, FechaActualizacion=SYSUTCDATETIME() WHERE IdAppointment=@id");
+      await this.addHistory(transaction, actor, id, row.status, "scheduled", `Reprogramada: ${input.reason}`);
+      await this.addEvent(transaction, "scheduling.appointment.rescheduled.v1", id, actor, { patientId: row.patientId, startsAt: input.startsAt, endsAt: input.endsAt, previousStartsAt: row.previousStartsAt, previousEndsAt: row.previousEndsAt, reason: input.reason });
+      await transaction.commit();
+      return this.get(actor, id);
+    } catch (error) { if (transaction._aborted !== true) await transaction.rollback(); throw error; }
+  }
+
   async history(actor, id) {
     const pool = await database();
     const result = await pool.request()

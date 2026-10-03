@@ -84,6 +84,14 @@ export class RecordService {
     return this.delivery.list(actor, normalizedPatientId);
   }
 
+  async deliveryAttempts(actor, id) {
+    const notificationId = recordId.parse(id);
+    const item = await this.delivery.get(actor, notificationId);
+    if (!item) throw notFound();
+    assertOwnPatient(actor, item.patientId);
+    return this.delivery.attempts(actor, notificationId);
+  }
+
   async createAlertRule(actor, input) {
     denyPatientWrite(actor);
     await this.entitlements.assert(actor.organizationId, "notifications.automation");

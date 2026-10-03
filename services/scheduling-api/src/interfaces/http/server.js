@@ -79,6 +79,11 @@ export function createServer(records, identity, config, readiness) {
         return send(response, 200, await records.changeStatus(actor, decodeURIComponent(status[1]), await readJson(request)), requestId);
       }
 
+      const reschedule = url.pathname.match(new RegExp(`^${config.resourcePath}/([^/]+)/reschedule$`));
+      if (reschedule && request.method === "POST") {
+        return send(response, 200, await records.reschedule(actor, decodeURIComponent(reschedule[1]), await readJson(request)), requestId);
+      }
+
       const history = url.pathname.match(new RegExp(`^${config.resourcePath}/([^/]+)/history$`));
       if (history && request.method === "GET") {
         return send(response, 200, await records.history(actor, decodeURIComponent(history[1])), requestId);

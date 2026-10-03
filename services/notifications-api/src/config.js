@@ -17,6 +17,14 @@ export const config = {
   rabbitmqUrl: process.env.RABBITMQ_URL || "",
   subscriptionsUrl: process.env.SUBSCRIPTIONS_API_URL || "http://localhost:4004",
   subscriptionsTimeoutMs: integer(process.env.SUBSCRIPTIONS_TIMEOUT_MS, 3000),
+  delivery: {
+    emailApiUrl: process.env.EMAIL_API_URL || "",
+    emailApiKey: process.env.EMAIL_API_KEY || "",
+    emailFrom: process.env.EMAIL_FROM || "NUTRIMEJOR <notificaciones@localhost>",
+    whatsappApiUrl: process.env.WHATSAPP_API_URL || "",
+    whatsappApiKey: process.env.WHATSAPP_API_KEY || "",
+    whatsappEnabled: process.env.WHATSAPP_ENABLED === "true",
+  },
   db: {
     server: process.env.DB_SERVER || "localhost",
     port: integer(process.env.DB_PORT, 14334),

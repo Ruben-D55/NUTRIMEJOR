@@ -18,7 +18,7 @@ const records = new RecordService(new SqlRecordRepository(), delivery, new Entit
 const identity = new IdentityClient(config);
 startOutboxPublisher(new SqlOutboxRepository(), config);
 startEventConsumer(delivery, config);
-startDispatcher(delivery);
+startDispatcher(delivery, config);
 
 createServer(records, identity, config, ready).listen(config.port, "0.0.0.0", () => {
   console.log(`${config.serviceName} listening on ${config.port}`);

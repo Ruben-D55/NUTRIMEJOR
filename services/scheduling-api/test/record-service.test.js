@@ -45,3 +45,43 @@ test("enforces appointment status transitions", async () => {
     expectedVersion: 1,
   }), /No se permite/);
 });
+
+test("allows a patient to reprogram only their own pending appointment", async () => {
+  const patientId = "11111111-1111-4111-8111-111111111111";
+  let received;
+  const repository = {
+    get: async () => ({ id: "33333333-3333-4333-8333-333333333333", patientId, status: "confirmed" }),
+    reschedule: async (_actor, _id, input) => ((received = input), { id: "33333333-3333-4333-8333-333333333333", status: "scheduled" }),
+  };
+  const service = new RecordService(repository);
+  const result = await service.reschedule(
+    { id: 9, organizationRole: "PATIENT", patientId },
+    "33333333-3333-4333-8333-333333333333",
+    { startsAt: "2026-10-06T13:00:00.000Z", endsAt: "2026-10-06T14:00:00.000Z", reason: "Cambio laboral", expectedVersion: 2 },
+  );
+  assert.equal(result.status, "scheduled");
+  assert.equal(received.timeZone, "America/La_Paz");
+});
+
+test("allows a patient to confirm their own scheduled appointment", async () => {
+  const patientId = "11111111-1111-4111-8111-111111111111";
+  const repository = {
+    get: async () => ({ id: "33333333-3333-4333-8333-333333333333", patientId, status: "scheduled" }),
+    changeStatus: async () => ({ id: "33333333-3333-4333-8333-333333333333", patientId, status: "confirmed" }),
+  };
+  const service = new RecordService(repository);
+  const result = await service.changeStatus(
+    { id: 9, organizationRole: "PATIENT", patientId },
+    "33333333-3333-4333-8333-333333333333",
+    { status: "confirmed", expectedVersion: 1 },
+  );
+  assert.equal(result.status, "confirmed");
+});
+
+test("rejects rescheduling completed appointments", async () => {
+  const repository = { get: async () => ({ id: "33333333-3333-4333-8333-333333333333", patientId: "11111111-1111-4111-8111-111111111111", status: "completed" }) };
+  const service = new RecordService(repository);
+  await assert.rejects(() => service.reschedule({ id: 7 }, "33333333-3333-4333-8333-333333333333", {
+    startsAt: "2026-10-06T13:00:00.000Z", endsAt: "2026-10-06T14:00:00.000Z", reason: "Cambio", expectedVersion: 1,
+  }), /Solo se puede reprogramar/);
+});

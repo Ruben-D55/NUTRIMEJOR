@@ -27,6 +27,21 @@ export const statusInput = z.object({
   expectedVersion: z.number().int().positive(),
 });
 
+export const rescheduleInput = z.object({
+  startsAt: dateTime,
+  endsAt: dateTime,
+  timeZone: z.string().trim().min(1).max(80).default("America/La_Paz"),
+  reason: z.string().trim().min(2).max(500),
+  expectedVersion: z.number().int().positive(),
+}).superRefine((value, context) => {
+  if (new Date(value.startsAt) >= new Date(value.endsAt)) {
+    context.addIssue({ code: "custom", path: ["endsAt"], message: "El fin debe ser posterior al inicio." });
+  }
+  if (new Date(value.endsAt) - new Date(value.startsAt) > 8 * 60 * 60 * 1000) {
+    context.addIssue({ code: "custom", path: ["endsAt"], message: "Una cita no puede durar más de 8 horas." });
+  }
+});
+
 export const availabilityRuleInput = z.object({
   weekday: z.number().int().min(0).max(6),
   startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),

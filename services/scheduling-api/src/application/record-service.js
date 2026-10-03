@@ -4,6 +4,7 @@ import {
   dateRange,
   recordId,
   recordInput,
+  rescheduleInput,
   statusInput,
 } from "../domain/record.js";
 import { DomainError, forbidden, notFound } from "../domain/errors.js";
@@ -60,7 +61,7 @@ export class RecordService {
     const parsed = statusInput.parse(input);
     const current = await this.repository.get(actor, recordId.parse(id));
     if (!current) throw notFound();
-    assertScope(actor, current.patientId, parsed.status === "cancelled" ? "appointment" : true);
+    assertScope(actor, current.patientId, ["confirmed", "cancelled"].includes(parsed.status) ? "appointment" : true);
     if (!transitions[current.status]?.has(parsed.status)) {
       throw new DomainError(
         `No se permite cambiar una cita de ${current.status} a ${parsed.status}.`,
@@ -71,6 +72,21 @@ export class RecordService {
     const item = await this.repository.changeStatus(actor, current.id, parsed);
     if (item?.conflict) throw new DomainError("La cita fue modificada por otro usuario.", 409, "VERSION_CONFLICT");
     return item;
+  }
+
+  async reschedule(actor, id, input) {
+    const parsed = rescheduleInput.parse(input);
+    const current = await this.repository.get(actor, recordId.parse(id));
+    if (!current) throw notFound();
+    assertScope(actor, current.patientId, "appointment");
+    if (!["scheduled", "confirmed"].includes(current.status)) {
+      throw new DomainError("Solo se puede reprogramar una cita pendiente o confirmada.", 409, "APPOINTMENT_NOT_RESCHEDULABLE");
+    }
+    const result = await this.repository.reschedule(actor, current.id, parsed);
+    if (result?.conflict) throw new DomainError("El profesional ya tiene una cita en ese horario.", 409, "APPOINTMENT_CONFLICT");
+    if (result?.unavailable) throw new DomainError("El horario está fuera de la disponibilidad configurada.", 422, "OUTSIDE_AVAILABILITY");
+    if (result?.versionConflict) throw new DomainError("La cita fue modificada por otro usuario.", 409, "VERSION_CONFLICT");
+    return result;
   }
 
   history(actor, id) {
