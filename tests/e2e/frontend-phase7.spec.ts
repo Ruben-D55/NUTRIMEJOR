@@ -41,7 +41,7 @@ test("módulos operativos, navegación por teclado y diseño móvil", async ({ p
   const modules: Array<[string, string]> = [
     ["/pacientes", "Mis pacientes"], ["/clinica", "Historia clínica"],
     ["/mediciones", "Mediciones"], ["/nutricion", "Evaluación nutricional"],
-    ["/planes", "Planes nutricionales"], ["/agenda", "Agenda y citas"],
+    ["/planes", "Planes nutricionales"], ["/agenda", "Agenda"],
     ["/notificaciones", "Notificaciones"], ["/documentos", "Documentos"],
     ["/reportes", "Reportes"], ["/membresia", "Membresía"],
   ];
