@@ -29,6 +29,7 @@ x-event-types:
   - planning.plan.created.v1
   - planning.plan.published.v1
   - scheduling.appointment.scheduled.v1
+  - scheduling.appointment.rescheduled.v1
   - scheduling.appointment.confirmed.v1
   - scheduling.appointment.completed.v1
   - scheduling.appointment.cancelled.v1

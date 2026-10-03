@@ -81,6 +81,17 @@ paths:
     post:
       responses:
         '201': { description: Trabajo encolado }
+  /v1/notification-jobs/{id}/attempts:
+    get:
+      description: Historial de entregas y fallos del trabajo de notificación.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Intentos ordenados cronológicamente }
+        '404': { description: Notificación no encontrada }
   /v1/alert-rules:
     get:
       responses:

@@ -56,6 +56,18 @@ paths:
       responses:
         '200': { description: Estado actualizado }
         '409': { description: Transición o versión inválida }
+  /v1/appointments/{id}/reschedule:
+    post:
+      description: Reprograma una cita, vuelve su estado a pendiente y publica un evento para renovar recordatorios.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Cita reprogramada }
+        '409': { description: Versión o conflicto de horario }
+        '422': { description: Fuera de disponibilidad }
   /v1/appointments/{id}/history:
     parameters:
       - in: path

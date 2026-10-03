@@ -83,3 +83,15 @@ test("patient cannot modify notification records", () => {
     (error) => error.code === "FORBIDDEN",
   );
 });
+
+test("patient can read delivery attempts only for their own notification", async () => {
+  const patientId = "11111111-1111-4111-8111-111111111111";
+  const notificationId = "33333333-3333-4333-8333-333333333333";
+  const delivery = {
+    get: async () => ({ id: notificationId, patientId }),
+    attempts: async () => [{ id: "44444444-4444-4444-8444-444444444444", status: "failed", attemptNumber: 1 }],
+  };
+  const service = new RecordService({}, delivery);
+  const attempts = await service.deliveryAttempts({ organizationRole: "PATIENT", patientId }, notificationId);
+  assert.equal(attempts[0].status, "failed");
+});

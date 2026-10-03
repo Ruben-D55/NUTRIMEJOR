@@ -1,0 +1,35 @@
+import { expect, test } from "@playwright/test";
+
+test("confirmación y reprogramación de citas desde la agenda", async ({ page }) => {
+  const stamp=Date.now(), email=`agenda-${stamp}@example.test`;
+  await page.goto("/login");
+  await page.getByRole("button",{name:"Crear cuenta"}).click();
+  await page.locator('input[name="name"]').fill("Agenda E2E");
+  await page.locator('input[name="email"]').fill(email);
+  await page.locator('input[name="password"]').fill("Password123!");
+  await page.getByRole("button",{name:/^Crear cuenta/}).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.goto("/pacientes/nuevo");
+  await page.getByLabel("Nombres").fill("Paciente");
+  await page.getByLabel("Apellidos").fill(`Agenda ${stamp}`);
+  await page.getByLabel("Documento",{exact:true}).fill(`AG-${stamp}`);
+  await page.getByRole("button",{name:"Registrar paciente"}).click();
+  await page.goto("/agenda");
+  await page.getByRole("button",{name:"Nueva cita"}).click();
+  await page.getByLabel("Paciente *").selectOption({label:`Paciente Agenda ${stamp}`});
+  await page.getByLabel("Título *").fill("Control fase 9");
+  await page.getByRole("button",{name:"Guardar cita"}).click();
+  const card=page.locator("article").filter({hasText:"Control fase 9"});
+  await expect(card).toBeVisible();
+  await card.getByRole("button",{name:"Confirmar"}).click();
+  await page.getByRole("dialog").getByRole("button",{name:"Confirmar",exact:true}).click();
+  await expect(card.getByText("confirmed")).toBeVisible();
+  await card.getByRole("button",{name:"Reprogramar"}).click();
+  const dialog=page.getByRole("dialog",{name:"Reprogramar cita"});
+  await dialog.getByLabel("Motivo *").fill("Nueva disponibilidad E2E");
+  await dialog.getByRole("button",{name:"Confirmar reprogramación"}).click();
+  await expect(card.getByText("scheduled")).toBeVisible();
+  await page.goto("/notificaciones");
+  await expect(page.getByRole("heading",{name:"Notificaciones",exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Alertas clínicas"})).toBeVisible();
+});

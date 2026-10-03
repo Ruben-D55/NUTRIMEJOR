@@ -184,6 +184,22 @@ export class SqlDeliveryRepository {
     return result.recordset.map(job);
   }
 
+  async attempts(actor, id) {
+    const pool = await database();
+    const result = await pool.request()
+      .input("organizationId", sql.UniqueIdentifier, actor.organizationId)
+      .input("id", sql.UniqueIdentifier, id)
+      .query(`SELECT attempts.IdDeliveryAttempt AS id, attempts.AttemptNumber AS attemptNumber,
+                     attempts.StartedAt AS startedAt, attempts.FinishedAt AS finishedAt,
+                     attempts.Status AS status, attempts.ProviderMessageId AS providerMessageId,
+                     attempts.ErrorMessage AS errorMessage
+              FROM NotificationDeliveryAttempts attempts
+              JOIN NotificationJobs jobs ON jobs.IdNotification=attempts.IdNotification
+              WHERE jobs.IdOrganizacion=@organizationId AND jobs.IdNotification=@id
+              ORDER BY attempts.AttemptNumber`);
+    return result.recordset;
+  }
+
   async processEvent(event) {
     if (!event?.eventId || !event?.organizationId || !event?.aggregateId) throw new Error("Evento inválido.");
     const pool = await database();
@@ -207,19 +223,36 @@ export class SqlDeliveryRepository {
         return false;
       }
       const patientId = event.data?.patientId;
-      if (patientId && event.eventType === "scheduling.appointment.scheduled.v1") {
+      if (patientId && event.eventType === "scheduling.appointment.cancelled.v1") {
+        await new sql.Request(transaction)
+          .input("organizationId", sql.UniqueIdentifier, event.organizationId)
+          .input("appointmentId", sql.NVarChar(36), String(event.aggregateId))
+          .query(`UPDATE NotificationJobs SET Estado='cancelled', FechaActualizacion=SYSUTCDATETIME()
+                  WHERE IdOrganizacion=@organizationId AND Estado='queued'
+                    AND JSON_VALUE(Datos,'$.appointmentId')=@appointmentId`);
+      }
+      if (patientId && ["scheduling.appointment.scheduled.v1", "scheduling.appointment.rescheduled.v1"].includes(event.eventType)) {
         const startsAt = new Date(event.data.startsAt);
+        if (event.eventType === "scheduling.appointment.rescheduled.v1") {
+          await new sql.Request(transaction)
+            .input("organizationId", sql.UniqueIdentifier, event.organizationId)
+            .input("appointmentId", sql.NVarChar(36), String(event.aggregateId))
+            .query(`UPDATE NotificationJobs SET Estado='cancelled', FechaActualizacion=SYSUTCDATETIME()
+                    WHERE IdOrganizacion=@organizationId AND Estado='queued'
+                      AND JSON_VALUE(Datos,'$.appointmentId')=@appointmentId`);
+        }
         await new sql.Request(transaction)
           .input("eventId", sql.UniqueIdentifier, event.eventId)
           .input("organizationId", sql.UniqueIdentifier, event.organizationId)
           .input("patientId", sql.UniqueIdentifier, patientId)
           .input("aggregateId", sql.UniqueIdentifier, event.aggregateId)
+          .input("data", sql.NVarChar(sql.MAX), JSON.stringify({ appointmentId: event.aggregateId, startsAt: event.data.startsAt }))
           .input("startsAt", sql.DateTime2, startsAt)
           .query(`INSERT INTO NotificationJobs
             (IdOrganizacion, IdNutricionista, IdPaciente, Titulo, Estado, Datos,
              SourceEventId, TemplateCode, Channel, Recipient, Subject, Body,
              ScheduledAt, NextAttemptAt, MaxAttempts)
-            SELECT @organizationId, 0, @patientId, N'Recordatorio de cita', 'queued', '{}',
+            SELECT @organizationId, 0, @patientId, N'Recordatorio de cita', 'queued', @data,
                    @eventId, 'APPOINTMENT_REMINDER', preferences.Channel, preferences.Recipient,
                    N'Recordatorio de cita',
                    CONCAT(N'Tiene una cita programada para ', CONVERT(nvarchar(30), @startsAt, 126)),
@@ -240,7 +273,7 @@ export class SqlDeliveryRepository {
   async pending(limit = 20) {
     const pool = await database();
     const result = await pool.request().input("limit", sql.Int, limit)
-      .query(`SELECT TOP (@limit) IdNotification AS id, Channel AS channel,
+      .query(`SELECT TOP (@limit) IdNotification AS id, Titulo AS title, Channel AS channel,
                      Recipient AS recipient, Subject AS subject, Body AS body,
                      AttemptCount AS attemptCount, MaxAttempts AS maxAttempts
               FROM NotificationJobs WITH (READPAST, UPDLOCK)
