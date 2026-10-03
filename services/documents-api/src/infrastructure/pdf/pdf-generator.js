@@ -17,6 +17,7 @@ function ensureSpace(doc, height = 60) {
 }
 
 export async function generatePdf(request, template, outputPath) {
+  const brandColor = template?.definition?.primaryColor || "#1F7A5A";
   await mkdir(path.dirname(outputPath), { recursive: true });
   const doc = new PDFDocument({ size: "A4", margin: 48, bufferPages: true, info: { Title: request.title } });
   const stream = createWriteStream(outputPath);
@@ -33,7 +34,7 @@ export async function generatePdf(request, template, outputPath) {
     doc.x = 48;
     ensureSpace(doc);
     if (section.type === "heading") {
-      doc.moveDown(0.7).font("Helvetica-Bold").fontSize(14).fillColor("#1F7A5A").text(section.text);
+      doc.moveDown(0.7).font("Helvetica-Bold").fontSize(14).fillColor(brandColor).text(section.text);
       doc.moveDown(0.35).fillColor("#1F2937");
     } else if (section.type === "paragraph") {
       doc.font("Helvetica").fontSize(10.5).fillColor("#1F2937")
@@ -52,7 +53,7 @@ export async function generatePdf(request, template, outputPath) {
       const drawRow = (values, header = false) => {
         ensureSpace(doc, 30);
         const y = doc.y;
-        if (header) doc.rect(48, y - 3, 500, 22).fill("#E8F3EE");
+        if (header) doc.rect(48, y - 3, 500, 22).fill(brandColor, 0.12);
         values.forEach((value, index) => {
           doc.font(header ? "Helvetica-Bold" : "Helvetica").fontSize(8.5)
             .fillColor("#1F2937").text(String(value), 52 + width * index, y, { width: width - 8 });

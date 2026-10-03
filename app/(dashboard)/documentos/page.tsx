@@ -1,2 +1,2 @@
-import { ModuleCrud } from "@/components/platform/module-crud";
-export default function Page(){ return <ModuleCrud kind="documents"/>; }
+import { DocumentsWorkspace } from "@/components/platform/documents-workspace";
+export default function Page(){ return <DocumentsWorkspace/>; }
