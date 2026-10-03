@@ -36,7 +36,8 @@ type User = {
   name: string;
   role: "ADMIN" | "NUTRICIONISTA";
   organizationId: string;
-  organizationRole: "OWNER" | "ADMIN" | "NUTRITIONIST" | "ASSISTANT";
+  organizationRole: "OWNER" | "ADMIN" | "NUTRITIONIST" | "ASSISTANT" | "PATIENT";
+  patientId?: string | null;
 };
 type Organization = { id: string; name: string; role: User["organizationRole"] };
 
@@ -68,6 +69,8 @@ const sections = [
   ]],
 ] as const;
 
+const patientSections = [["Mi espacio", [["/mi-portal", "Mi portal nutricional", LayoutDashboard]]]] as const;
+
 function initials(name: string) {
   return name
     .split(/\s+/)
@@ -84,6 +87,11 @@ export default function Shell({ children, user }: { children: React.ReactNode; u
   const path = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const visibleSections = user.organizationRole === "PATIENT" ? patientSections : sections;
+
+  useEffect(() => {
+    if (user.organizationRole === "PATIENT" && path !== "/mi-portal") router.replace("/mi-portal");
+  }, [path, router, user.organizationRole]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -135,7 +143,7 @@ export default function Shell({ children, user }: { children: React.ReactNode; u
           </button>
         </div>
 
-        <label className="mb-4 block rounded-xl border p-3 text-xs dark:border-emerald-800">
+        {user.organizationRole !== "PATIENT" && <label className="mb-4 block rounded-xl border p-3 text-xs dark:border-emerald-800">
           <span className="mb-2 flex items-center gap-2 font-semibold text-slate-500">
             <Building2 className="h-4 w-4" /> Organización
           </span>
@@ -155,10 +163,10 @@ export default function Shell({ children, user }: { children: React.ReactNode; u
               </option>
             ))}
           </select>
-        </label>
+        </label>}
 
         <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-          {sections.map(([section, links]) => (
+          {visibleSections.map(([section, links]) => (
             <div key={section}>
               <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
                 {section}
@@ -187,7 +195,7 @@ export default function Shell({ children, user }: { children: React.ReactNode; u
           <div className="min-w-0 flex-1">
             <strong className="block truncate text-sm">{user.name}</strong>
             <small className="block text-xs capitalize text-slate-500">
-              {user.role.toLowerCase()}
+              {user.organizationRole === "PATIENT" ? "paciente" : user.role.toLowerCase()}
             </small>
           </div>
           <button aria-label="Cerrar sesión" title="Cerrar sesión" onClick={logout} className="rounded-lg p-2">

@@ -76,6 +76,29 @@ test("never includes a contraindicated catalog item", async () => {
   );
 });
 
+test("ranks safe food substitutions and removes allergy matches", async () => {
+  const safeId = "11111111-1111-4111-8111-111111111111";
+  const unsafeId = "22222222-2222-4222-8222-222222222222";
+  const foods = {
+    [foodId]: { id: foodId, name: "Avena", nutrients: [{ nutrientCode: "energy_kcal", nutrientName: "Energía", unit: "kcal", amountPer100g: 100 }] },
+    [safeId]: { id: safeId, name: "Quinua", nutrients: [{ nutrientCode: "energy_kcal", nutrientName: "Energía", unit: "kcal", amountPer100g: 120 }] },
+    [unsafeId]: { id: unsafeId, name: "Maní", nutrients: [{ nutrientCode: "energy_kcal", nutrientName: "Energía", unit: "kcal", amountPer100g: 100 }] },
+  };
+  let recorded;
+  const service = new RecordService(
+    { recordSubstitutions: async (_actor, _input, result) => { recorded = result; } },
+    { getFood: async (id) => foods[id] },
+  );
+  const result = await service.substitutions({ id: 7 }, {
+    patientId, original: { catalogType: "food", catalogId: foodId, amount: 100, amountUnit: "g" },
+    candidates: [{ catalogType: "food", catalogId: unsafeId }, { catalogType: "food", catalogId: safeId }],
+    restrictions: [{ type: "allergy", value: "mani" }],
+  });
+  assert.equal(result.alternatives.length, 1);
+  assert.equal(result.alternatives[0].name, "Quinua");
+  assert.equal(recorded.length, 1);
+});
+
 test("assistants cannot access meal plans", () => {
   const service = new RecordService({ list: async () => [] });
   assert.throws(

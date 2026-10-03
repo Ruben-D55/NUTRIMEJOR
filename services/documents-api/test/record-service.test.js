@@ -32,3 +32,15 @@ test("queues a validated PDF generation request", async () => {
   assert.equal(result.status, "queued");
   assert.equal(received.input.sections.length, 1);
 });
+
+test("patients cannot request a download token for another patient's PDF", async () => {
+  const generation = { createAccessToken: async () => ({ token: "secret", expiresAt: new Date(), patientId: "11111111-1111-4111-8111-111111111111" }) };
+  const service = new RecordService({}, generation);
+  await assert.rejects(
+    () => service.accessUrl(
+      { id: 9, organizationRole: "PATIENT", patientId: "22222222-2222-4222-8222-222222222222" },
+      "33333333-3333-4333-8333-333333333333", { expiresInMinutes: 15 }, "http://documents",
+    ),
+    (error) => error.status === 403,
+  );
+});

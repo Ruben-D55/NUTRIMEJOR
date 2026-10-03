@@ -175,7 +175,7 @@ export class SqlGenerationRepository {
       .query(`INSERT INTO DocumentAccessTokens
         (IdOrganizacion, IdDocumentRequest, TokenHash, ExpiresAt, CreatedBy)
         VALUES (@organizationId, @id, @hash, @expiresAt, @actorId)`);
-    return { token, expiresAt };
+    return { token, expiresAt, patientId: document.patientId };
   }
 
   async resolveToken(token) {
