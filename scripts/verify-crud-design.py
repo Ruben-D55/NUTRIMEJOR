@@ -15,6 +15,9 @@ required = {
         "Hay cambios sin guardar",
     ],
     "components/platform/module-crud.tsx": ["CrudPageHeader", "MetricCards", "Drawer"],
+    "components/platform/membership-workspace.tsx": [
+        "Beneficios de cada plan", "benefitLimit", "Uso del plan actual", "feature.used",
+    ],
     "app/globals.css": [".crud-hero", ".metric-card", ".drawer-panel", ".data-table"],
 }
 

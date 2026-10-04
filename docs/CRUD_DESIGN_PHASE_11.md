@@ -27,6 +27,10 @@ Mediciones, Planes, Agenda, Notificaciones, Documentos, Reportes, Catálogos, Me
 Configuración. Las capacidades específicas existentes, como gráficos, versiones,
 reintentos, vistas de agenda y descargas, se conservan dentro del nuevo patrón.
 
+Membresía muestra la matriz completa de beneficios de BASIC, PRO y SPORT, incluidos los
+límites de cada función. Para el plan activo presenta consumo, disponibilidad, periodo
+de prueba e historial de cambios.
+
 ## Verificación
 
 `npm run verify:crud-design` comprueba la adopción de los componentes y los elementos de
