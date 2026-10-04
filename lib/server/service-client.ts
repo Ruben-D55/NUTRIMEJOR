@@ -43,7 +43,7 @@ export async function callService(
   const token = cookieStore.get("nm_session")?.value;
   const headers = new Headers(options.headers);
   const method = options.method || "GET";
-  headers.set("accept", "application/json");
+  if (!headers.has("accept")) headers.set("accept", "application/json");
   headers.set("x-correlation-id", requestId(request));
   if (token) headers.set("authorization", `Bearer ${token}`);
   if (options.body) headers.set("content-type", "application/json");
@@ -98,14 +98,22 @@ export async function proxyService(
   try {
     const method = request.method;
     const body = method === "GET" || method === "HEAD" ? undefined : await request.text();
-    const response = await callService(service, path, { method, body }, request);
-    const text = response.status === 204 ? null : await response.text();
-    return new NextResponse(text, {
+    const response = await callService(service, path, {
+      method,
+      body,
+      headers: { accept: request.headers.get("accept") || "*/*" },
+    }, request);
+    const payload = response.status === 204 ? null : await response.arrayBuffer();
+    const headers = new Headers({
+      "x-correlation-id": response.headers.get("x-correlation-id") || requestId(request),
+    });
+    for (const name of ["content-type", "content-disposition", "content-length", "x-content-sha256"]) {
+      const value = response.headers.get(name);
+      if (value) headers.set(name, value);
+    }
+    return new NextResponse(payload, {
       status: response.status,
-      headers: {
-        ...(text ? { "content-type": response.headers.get("content-type") || "application/json" } : {}),
-        "x-correlation-id": response.headers.get("x-correlation-id") || requestId(request),
-      },
+      headers,
     });
   } catch (error) {
     console.error(`Error comunicando con ${service}:`, error);

@@ -108,7 +108,7 @@ const access = await request(`http://localhost:4011/v1/generated-documents/${cre
   method: "POST",
   body: { expiresInMinutes: 15 },
 });
-const download = await fetch(local(access.url));
+const download = await fetch(local(gatewayUrl(access.url)));
 assert.equal(download.status, 200);
 assert.equal(download.headers.get("content-type"), "application/pdf");
 const bytes = Buffer.from(await download.arrayBuffer());
