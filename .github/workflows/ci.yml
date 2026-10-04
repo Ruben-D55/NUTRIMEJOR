@@ -40,7 +40,15 @@ jobs:
       - run: npm run verify:frontend
       - run: npm run verify:advanced-nutrition
       - run: npm run verify:scheduling-communications
+      - run: npm run verify:deployment
       - run: docker compose config --quiet
+      - name: Validate deployment compose files
+        shell: bash
+        run: |
+          cp deploy/environments/test.env.example deploy/environments/test.env
+          IMAGE_TAG=v0.10.0 docker compose --env-file .env --env-file deploy/environments/test.env -f docker-compose.yml -f deploy/compose.images.yml -f deploy/compose.test.yml --profile full config --quiet
+          cp deploy/environments/production.env.example deploy/environments/production.env
+          IMAGE_TAG=v0.10.0 docker compose --env-file .env --env-file deploy/environments/production.env -f docker-compose.yml -f deploy/compose.images.yml -f deploy/compose.production.yml --profile full config --quiet
       - run: docker compose --profile full config --quiet
       - run: docker compose --profile monitoring config --quiet
       - run: docker compose --profile full build

@@ -9,5 +9,8 @@ output/
 tmp/
 playwright-report/
 test-results/
+.deploy-state/
+deploy/environments/*.env
+!deploy/environments/*.env.example
 **/bin/
 **/obj/

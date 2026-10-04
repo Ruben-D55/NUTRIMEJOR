@@ -117,3 +117,7 @@ docker compose --profile full config
 El respaldo cifrado, la retención, el simulacro de restauración y la reversión de
 migraciones están descritos en [`docs/DATA_PROTECTION.md`](docs/DATA_PROTECTION.md).
 Consulta también [`DEPLOYMENT.md`](DEPLOYMENT.md) antes de preparar un ambiente productivo.
+La automatización de ambientes, publicación versionada, dominio/HTTPS y promoción está
+en [`docs/DEPLOYMENT_PHASE_10.md`](docs/DEPLOYMENT_PHASE_10.md). El procedimiento para
+instalar o recuperar un host está en
+[`docs/INSTALLATION_AND_RECOVERY.md`](docs/INSTALLATION_AND_RECOVERY.md).

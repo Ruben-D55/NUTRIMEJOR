@@ -1,0 +1,87 @@
+name: Deploy environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Protected GitHub environment and target runner label
+        required: true
+        type: choice
+        options:
+          - test
+          - production
+      image_tag:
+        description: Exact published tag (vX.Y.Z or sha-<40>)
+        required: true
+        type: string
+      rollback_migration_on_failure:
+        description: Reverse one migration if deployment fails
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment: ${{ inputs.environment }}
+    runs-on: [self-hosted, nutrimejor, "${{ inputs.environment }}"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Select release source
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.image_tag }}
+        run: |
+          $releaseRef = if ($env:RELEASE_TAG.StartsWith('sha-')) { $env:RELEASE_TAG.Substring(4) } else { $env:RELEASE_TAG }
+          git checkout --detach $releaseRef
+      - name: Validate exact release tag
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.image_tag }}
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^(v\d+\.\d+\.\d+(?:[-.][A-Za-z0-9.]+)?|sha-[0-9a-f]{40})$') {
+            throw 'La etiqueta debe ser vX.Y.Z o sha-<40 caracteres>.'
+          }
+      - name: Write protected environment configuration
+        shell: pwsh
+        env:
+          DEPLOY_PUBLIC_ENV: ${{ vars.DEPLOY_ENV_FILE }}
+          DEPLOY_SECRET_ENV: ${{ secrets.APP_ENV_FILE }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:DEPLOY_PUBLIC_ENV)) { throw 'Falta la variable DEPLOY_ENV_FILE.' }
+          if ([string]::IsNullOrWhiteSpace($env:DEPLOY_SECRET_ENV)) { throw 'Falta el secreto APP_ENV_FILE.' }
+          New-Item -ItemType Directory -Path deploy/environments -Force | Out-Null
+          Set-Content -LiteralPath "deploy/environments/${{ inputs.environment }}.env" -Value $env:DEPLOY_PUBLIC_ENV -Encoding utf8
+          Set-Content -LiteralPath .env -Value $env:DEPLOY_SECRET_ENV -Encoding utf8
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Deploy with controlled migrations
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.image_tag }}
+        run: |
+          $arguments = @(
+            '-Environment', '${{ inputs.environment }}',
+            '-ImageTag', $env:RELEASE_TAG,
+            '-EnvironmentFile', "deploy/environments/${{ inputs.environment }}.env"
+          )
+          if ('${{ inputs.rollback_migration_on_failure }}' -eq 'true') { $arguments += '-RollbackMigrationOnFailure' }
+          & ./scripts/deploy-release.ps1 @arguments
+      - name: Remove generated secret files
+        if: always()
+        shell: pwsh
+        run: |
+          Remove-Item -LiteralPath .env -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath "deploy/environments/${{ inputs.environment }}.env" -Force -ErrorAction SilentlyContinue

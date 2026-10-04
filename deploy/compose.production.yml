@@ -1,0 +1,83 @@
+name: nutrimejor-production
+
+services:
+  identity-db:
+    ports: !reset []
+  patients-db:
+    ports: !reset []
+  catalogs-db:
+    ports: !reset []
+  platform-db:
+    ports: !reset []
+  rabbitmq:
+    ports: !reset []
+  redis:
+    ports: !reset []
+  identity-api:
+    environment:
+      EXPOSE_DEVELOPMENT_TOKENS: "false"
+      RUN_MIGRATIONS_ON_STARTUP: "false"
+      DB_ENCRYPT: "true"
+      DB_TRUST_CERTIFICATE: "false"
+  patients-api:
+    environment: &production-api-environment
+      RUN_MIGRATIONS_ON_STARTUP: "false"
+      DB_ENCRYPT: "true"
+      DB_TRUST_CERTIFICATE: "false"
+  catalogs-api:
+    environment: *production-api-environment
+  subscriptions-api:
+    environment: *production-api-environment
+  clinical-api:
+    environment: *production-api-environment
+  measurements-api:
+    environment: *production-api-environment
+  nutrition-api:
+    environment: *production-api-environment
+  planning-api:
+    environment: *production-api-environment
+  scheduling-api:
+    environment: *production-api-environment
+  notifications-api:
+    environment: *production-api-environment
+  documents-api:
+    environment: *production-api-environment
+  reporting-api:
+    environment: *production-api-environment
+  web:
+    ports: !reset []
+    environment:
+      NEXT_PUBLIC_APP_URL: https://${APP_DOMAIN:?Define APP_DOMAIN}
+  razor-web:
+    ports: !reset []
+  api-gateway:
+    ports: !reset []
+    environment:
+      CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN}
+  prometheus:
+    ports: !reset []
+  alertmanager:
+    ports: !reset []
+  grafana:
+    ports: !reset []
+  edge:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?Define ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

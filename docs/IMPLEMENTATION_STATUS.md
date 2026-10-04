@@ -32,6 +32,15 @@ servicio arranque no significa que su dominio completo ya esté implementado.
 | 13. Sport | En progreso avanzado | Derecho Sport, ISAK 1/2, evaluador/acreditación, pliegues, diámetros, longitudes, perímetros, equipo/lado, composición corporal, tasa de sudoración, comparación y generador pre/intra/post | Definir ISAK 3 y aprobar casos de referencia con un profesional acreditado |
 | 14. Producción | En progreso avanzado | Imágenes Docker, CI, validación de contratos, prueba concurrente de salud, respaldo con checksum, simulacro de restauración y runbook de seguridad | Ejecutar en infraestructura elegida TLS, gestor de secretos, observabilidad y una prueba de carga autenticada |
 
+## Fase 10 — despliegue automatizado
+
+- Ambientes independientes para desarrollo, pruebas y producción mediante overlays de Compose.
+- Entrada productiva única con Caddy, dominio configurable, HTTPS automático y cabeceras seguras.
+- Publicación de quince imágenes GHCR con versión exacta, SBOM, procedencia y commit de origen.
+- Promoción desde GitHub Actions mediante Environments protegidos y runners separados.
+- Migraciones como trabajo único, respaldo cifrado previo y rollback explícito de código/esquema.
+- Manual verificable de instalación, actualización y recuperación completa.
+
 ## Verificación local
 
 ```powershell

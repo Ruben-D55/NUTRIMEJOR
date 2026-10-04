@@ -1,0 +1,31 @@
+services:
+  identity-api:
+    image: ${IMAGE_REGISTRY:?Define IMAGE_REGISTRY}/${IMAGE_NAMESPACE:?Define IMAGE_NAMESPACE}/nutrimejor-identity-api:${IMAGE_TAG:?Define IMAGE_TAG}
+  patients-api:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/nutrimejor-patients-api:${IMAGE_TAG}
+  catalogs-api:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/nutrimejor-catalogs-api:${IMAGE_TAG}
+  subscriptions-api:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/nutrimejor-subscriptions-api:${IMAGE_TAG}
+  clinical-api:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/nutrimejor-clinical-api:${IMAGE_TAG}
+  measurements-api:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/nutrimejor-measurements-api:${IMAGE_TAG}
+  nutrition-api:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/nutrimejor-nutrition-api:${IMAGE_TAG}
+  planning-api:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/nutrimejor-planning-api:${IMAGE_TAG}
+  scheduling-api:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/nutrimejor-scheduling-api:${IMAGE_TAG}
+  notifications-api:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/nutrimejor-notifications-api:${IMAGE_TAG}
+  documents-api:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/nutrimejor-documents-api:${IMAGE_TAG}
+  reporting-api:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/nutrimejor-reporting-api:${IMAGE_TAG}
+  api-gateway:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/nutrimejor-api-gateway:${IMAGE_TAG}
+  web:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/nutrimejor-web:${IMAGE_TAG}
+  razor-web:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/nutrimejor-razor-web:${IMAGE_TAG}

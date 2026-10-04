@@ -1,0 +1,10 @@
+name: nutrimejor-development
+
+services:
+  identity-api:
+    environment:
+      EXPOSE_DEVELOPMENT_TOKENS: "true"
+      RUN_MIGRATIONS_ON_STARTUP: "true"
+  web:
+    environment:
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
