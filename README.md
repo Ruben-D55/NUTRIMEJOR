@@ -35,6 +35,8 @@ por fase. El avance comprobado y el trabajo pendiente están en
 [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
 Las mejoras operativas, móviles y de accesibilidad del frontend se describen en
 [docs/FRONTEND_PHASE_7.md](docs/FRONTEND_PHASE_7.md).
+El patrón visual común para los CRUD y su cobertura por módulo se documentan en
+[docs/CRUD_DESIGN_PHASE_11.md](docs/CRUD_DESIGN_PHASE_11.md).
 
 ## Inicio rápido con Docker
 
@@ -91,6 +93,7 @@ npm run verify:architecture
 npm run verify:observability
 npm run verify:data-protection
 npm run verify:frontend
+npm run verify:crud-design
 npm run test:data-protection
 npm run smoke:health-load
 npm run smoke:platform

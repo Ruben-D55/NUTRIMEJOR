@@ -41,6 +41,16 @@ servicio arranque no significa que su dominio completo ya esté implementado.
 - Migraciones como trabajo único, respaldo cifrado previo y rollback explícito de código/esquema.
 - Manual verificable de instalación, actualización y recuperación completa.
 
+## Fase 11 — diseño común para CRUD
+
+- Encabezados ejecutivos e indicadores reutilizables en todos los módulos del menú.
+- Pacientes como referencia completa con búsqueda, filtros, ordenamiento, paginación,
+  columnas configurables, exportación, selección múltiple y acciones por fila.
+- Formularios por secciones, validaciones claras, bloqueo durante el guardado y aviso de
+  cambios sin guardar.
+- Paneles laterales accesibles, navegación por teclado y presentación móvil con tarjetas.
+- Prueba Playwright y verificador estático ejecutados automáticamente por GitHub Actions.
+
 ## Verificación local
 
 ```powershell

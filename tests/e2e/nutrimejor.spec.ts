@@ -104,7 +104,8 @@ test("creación y edición de pacientes desde la interfaz", async ({ page }) => 
   const row = page.getByRole("row").filter({ hasText: `Elena Integral ${stamp}` });
   await expect(row).toBeVisible();
 
-  await row.getByTitle("Editar").click();
+  await row.getByLabel(`Acciones de Elena Integral ${stamp}`).click();
+  await row.getByRole("link", { name: "Editar" }).click();
   await page.getByLabel("Nombres", { exact: true }).fill("Elena María");
   await page.getByLabel("Objetivo general").fill("Seguimiento nutricional integral");
   await page.getByRole("button", { name: "Guardar cambios" }).click();

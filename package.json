@@ -33,6 +33,7 @@
     "verify:advanced-nutrition": "python scripts/verify-advanced-nutrition.py",
     "verify:scheduling-communications": "python scripts/verify-scheduling-communications.py",
     "verify:deployment": "python scripts/verify-deployment.py",
+    "verify:crud-design": "python scripts/verify-crud-design.py",
     "test:data-protection": "node --test tests/data-protection/*.test.mjs",
     "backup:databases": "pwsh -NoProfile -File scripts/backup-databases.ps1",
     "smoke:health-load": "node scripts/smoke-health-load.mjs",

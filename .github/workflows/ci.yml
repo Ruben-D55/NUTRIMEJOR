@@ -41,6 +41,7 @@ jobs:
       - run: npm run verify:advanced-nutrition
       - run: npm run verify:scheduling-communications
       - run: npm run verify:deployment
+      - run: npm run verify:crud-design
       - run: docker compose config --quiet
       - name: Validate deployment compose files
         shell: bash
